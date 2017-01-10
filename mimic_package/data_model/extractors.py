@@ -93,17 +93,21 @@ def get_person_index_age(person):
     person_dob = person.DOB
     person_age_at_index = index_record_date - person_dob
     person_age_at_index = format((person_age_at_index.total_seconds() / (365.25 * 86400)), '.2f') # convert to years 
-    return person_age_at_index
+    return float(person_age_at_index)
 
 def get_index_admission_length(person):
     index_admission = person.index_admission
     index_admission_length = index_admission.visit_end_date - index_admission.visit_start_date 
     index_admission_length = format((index_admission_length.total_seconds() / 86400), '.2f')  # convert to days 
-    return index_admission_length
+    return float(index_admission_length)
 
 def get_person_gender(person):
     person_gender = person.gender
-    return person_gender
+    if person_gender == "M":
+        return 0
+    if person_gender == "F": 
+        return 1
+
 
 def get_person_ethnicity(person):
     pass 
@@ -166,21 +170,27 @@ for person in persons:
 
 # create training / testing sets 
 ''' running on assumption that 40 / 60 is a good test / train ratio. Easily changeable. 
+    Why did I create the columns in the first place? Are those supposed to be there? 
+    Where do they go when I use sample or drop? 
 '''
 all_data_df = pd.DataFrame(data=np_data[1:,:], columns=np_data[0,:])
 
 # clean data 
 
 
+#stupid names, change
 
 train_df = all_data_df.sample(frac=0.6)
+train_df2 = train_df.drop('readmit_30', axis=1) 
 test_df = all_data_df.drop(train_df.index)
-test_df = test_df.drop('readmit_30', axis=1) 
+test_df2 = test_df.drop('readmit_30', axis=1) 
 
 
 # fit the model 
 rf = RandomForestClassifier(n_estimators= 100)
-m = rf.fit(train_df, test_df)
+m = rf.fit(test_df, test_df2)
+output = rf.predict(train_df)
+
 print "Features sorted by their score:"
 
 
