@@ -259,12 +259,10 @@ caregivers_table = table_from_class(Caregiver, metadata, 'caregivers')
 callouts_table = table_from_class(Callout, metadata, 'callouts')
 chartevents_table = table_from_class(ChartEvent, metadata, 'chartevents')
 cptevents_table = table_from_class(CPTevent, metadata, 'cptevents')
-patients_table = table_from_class(Patient, metadata, 'patients')
 # d_icd_diagnoses_table = table_from_class(D_ICD_Diagnosis, metadata, 'd_icd_diagnoses') # hold
 # d_icd_procedures_table = table_from_class(D_ICD_Procedure, metadata, 'd_icd_procedures') # hold
 d_items_table = table_from_class(D_Item, metadata, 'd_items')
 d_labitems_table = table_from_class(D_Labitem, metadata, 'd_labitems')
-patients_table = table_from_class(Patient, metadata, 'patients')
 datetimeevents_table = table_from_class(Datetimeevent, metadata, 'datetimeevents')
 diagnosis_icd_table = table_from_class(Diagnosis_ICD, metadata, 'diagnoses_icd')
 drg_codes_table = table_from_class(Drgcode, metadata, 'drgcodes')
@@ -281,7 +279,7 @@ procedures_icd_table = table_from_class(Procedure_ICD, metadata, 'procedures_icd
 services_table = table_from_class(Service, metadata, 'services')
 transfers_table = table_from_class(Transfer, metadata, 'transfers')
 
-
+metadata.create_all()
 
 
 
@@ -315,7 +313,7 @@ writer_config = {
                 Transfer: SqaWriterConfig(transfers_table, create_table_if_not_exist=True)
                 }
             
-metadata.create_all()
+
 # Define the mapping between tables and objects for reading
 # what is engine here? why would it be in mppaer
 reader_config = {

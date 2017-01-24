@@ -1,4 +1,5 @@
-from mimic_package.data_model.mapper import Patient, Prescription
+# from mimic_package.data_model.mapper import Patient, Prescription
+from mimic_package.data_model.oreader_mapper import Patient, Prescription
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from mimic_package.connect.connect import connection_string
@@ -156,6 +157,8 @@ def apply_extractors(person):
         return features 
     
 # pseudo controller
+
+create_testing_pickle(Patient)
 
 persons = load_testing_pickle()
 df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate", 'readmit_30']
