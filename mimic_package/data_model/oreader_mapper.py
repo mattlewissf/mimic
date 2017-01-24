@@ -12,7 +12,7 @@ Porting over the mapper.py that currently exists (as an implementation of SQLAlc
 '''
 
 from oreader.base import DataObject, schema, IntegerColumn, StringColumn,\
-    RealColumn, DateColumn, backrelate, relate
+    RealColumn, DateColumn, backrelate, relate, sqa_schema
 from sqlalchemy.engine import create_engine
 from sqlalchemy.sql.schema import MetaData, Table, Column
 from sqlalchemy.sql.sqltypes import Integer, String, Float, Date
@@ -24,7 +24,7 @@ import datetime
 from oreader.reader_configs import SqaReaderConfig
 from itertools import islice, chain, cycle
 import unittest
-# from frozendict import frozendict
+from frozendict import frozendict
 from nose.tools import assert_list_equal, assert_raises, assert_equal, eq_
 from oreader.groups import create_attribute_group_mixin,\
     AttributeGroup, AttributeGroupList
@@ -32,122 +32,159 @@ from oreader.groups import create_attribute_group_mixin,\
 from mimic_package.data_model.metadata import metadata
 
 
+
+
+
 class ChartObj(DataObject):
     partition_attribute = 'row_id'
 
-'''
-does this even get a schema? It is the top object for everything
-'''
-# @schema([IntegerColumn(name='id'), 
-#          StringColumn(name='name'), 
-#          ])    
+
+@sqa_schema(metadata.tables['mimiciii.patients'])
 class Patient(ChartObj):
-    identity_key_ = ('row_id', 'row_id')
-    sort_key_ = ('row_id', 'row_id')
+    identity_key_ = ('row_id', 'id')
+    sort_key_ = ('row_id', 'id')
 #     container_key_ = ('school_id', 'school_id')
-
-@schema([IntegerColumn(name='row_id'), 
-         IntegerColumn(name='subject_id') 
-         ])       
-@backrelate({'admissions': (Patient, True)})
+ 
+@sqa_schema(metadata.tables['mimiciii.admissions']) 
+# @backrelate({'admissions': (Patient, True)})
 class Admission(ChartObj):
-    identity_key_ = (('row_id', 'row_id'), ('subject_id', 'subject_id'))
+    identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id', 'subject_id') 
-    container_key = (('row_id', 'row_id'), ('subject_id', 'subject_id'))
-    
-
-@schema([IntegerColumn(name='row_id'), 
-         IntegerColumn(name='subject_id'),
-         IntegerColumn(name='hadm_id') 
-         ])
-@backrelate({'callouts': (Patient, True), 'callouts': (Admission, True)})  
+    container_key = (('subject_id', 'subject_id'))
+     
+@sqa_schema(metadata.tables['mimiciii.callout']) # is this table singular?
+# @backrelate({'callouts': (Patient, True), 'callouts': (Admission, True)})  
 class Callout(ChartObj):
-    identity_key_ = (('row_id', 'row_id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
+    identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
     sort_key_ = ('row_id', 'subject_id', 'hadm_id') 
     container_key = (('row_id', 'row_id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
-    
-
+     
+@sqa_schema(metadata.tables['mimiciii.caregivers'])
 class Caregiver(ChartObj):
-    pass
-    # this doesn't have any fk / check in schema docs again
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id'))
 
-
-@schema([IntegerColumn(name='row_id'), 
-         IntegerColumn(name='subject_id'),
-         IntegerColumn(name='hadm_id'), 
-         IntegerColumn(name='icustay_id'), 
-         IntegerColumn(name='item_id'), 
-         IntegerColumn(name='cgid')
-         ])
+@sqa_schema(metadata.tables['mimiciii.chartevents'])
 @backrelate({'chartevents': (Patient, True), 'chartevents': (Admission, True), \
             'chartevents': (Icustay, True), 'chartevents': (D_Item, True), \
             'chartevents': (Caregiver, True)})
 class ChartEvent(ChartObj):
-    pass
-
+    identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('icustay_id', 'icustay_id'), \
+                     ('item_id', 'item_id'), ('cgid', 'cgid'))
+    sort_key_ = ('row_id', 'subject_id', 'hadm_id') 
+    container_key = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('icustay_id', 'icustay_id'), \
+                     ('item_id', 'item_id'), ('cgid', 'cgid'))
+ 
+   
+@sqa_schema(metadata.tables['mimiciii.cptevents'])
+@backrelate({'cptevents': (Patient, True), 'cptevents': (Admission, True)})
 class CPTevent(ChartObj):
-    pass
+        identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
+        sort_key_ = ('row_id', 'subject_id', 'hadm_id')
+        container_key = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
 
+@sqa_schema(metadata.tables['mimiciii.d_icd_diagnoses'])
 class D_ICD_Diagnosis(ChartObj):
     pass
+    # See original mapper - unclear if needed
 
+@sqa_schema(metadata.tables['mimiciii.d_icd_procedures'])
 class D_ICD_Procedure(ChartObj):
     pass
-    
+    # See original mapper - unclear if needed
+
+@sqa_schema(metadata.tables['mimiciii.d_items'])    
 class D_Item(ChartObj):
-    pass     
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
+@sqa_schema(metadata.tables['mimiciii.d_labitems'])
 class D_Labitem(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
+@sqa_schema(metadata.tables['mimiciii.datetimeevents'])
+# @backrelate({'datetimeevents': (Admission, True), 'datetimeevents': })
 class Datetimeevent(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id' ), ('itemid', 'itemid'), ('cgid', 'cgid'), \
+                     ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Diagnosis_ICD(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Drgcode(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Icustay(ChartObj):
-    pass
-
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
+    
 class Inputevent_CV(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Inputevent_MV(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Labevent(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Microbiologyevent(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Noteevent(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Outputevent(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Prescription(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'))
+    sort_key_ = ('row_id')
+    container_key = (('row_id', 'id')) 
 
 class Procedureevent_MV(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
+    sort_key_ = ('row_id')
+    container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
+
 
 class Procedure_ICD(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
+    sort_key_ = ('row_id')
+    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
 class Service(ChartObj):
-    pass
+    identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
+    sort_key_ = ('row_id')
+    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
+
 
 class Transfer(ChartObj):
-    pass
-
-
-
-
+    identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
+    sort_key_ = ('row_id', 'icustay_id', 'hadm_id', 'subject_id')
+    container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
 '''
  Settings? Mappings? Pulling these from the test file and trying to re-work them
