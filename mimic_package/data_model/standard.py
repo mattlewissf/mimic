@@ -1,5 +1,6 @@
-# this is where we put mapping over to OMOP, for example
-# standard does not know about mapper
+'''
+standard does not know about mapper
+'''
 
     
 class OMOPStandardData(object):

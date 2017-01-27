@@ -1,5 +1,6 @@
 # from mimic_package.data_model.mapper import Patient, Prescription
-from mimic_package.data_model.oreader_mapper import Patient, Prescription
+from mimic_package.data_model.oreader_mapper import Patient, Prescription,\
+    reader_config
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from mimic_package.connect.connect import connection_string
@@ -10,11 +11,16 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from mimic_package.data_model.resources import testing_pickle_filename
 import pickle
+from sqlalchemy.sql.schema import MetaData
 
 # create sessions
 engine = create_engine(connection_string, echo=False, convert_unicode=True)
-Session = sessionmaker(bind=engine)  
-session = Session()
+metadata = MetaData(bind=engine)
+metadata.create_all()
+reader = Patient.reader(reader_config)
+
+# Session = sessionmaker(bind=engine)  
+# session = Session()
 
 """ 
 Extraction helper methods.

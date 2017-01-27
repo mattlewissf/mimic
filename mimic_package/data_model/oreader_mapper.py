@@ -3,8 +3,10 @@ Created on Jan 13, 2017
 
 @author: mattlewis
 '''
-from mimic_package.data_model.mapper import D_Item, Icustay, Chartevent
-from mimic_package.data_model.standard import OMOPPerson
+from mimic_package.data_model.mapper import D_Item, Icustay, Chartevent, Patient
+from mimic_package.data_model.standard import OMOPPerson, OMOPVisitOccurance,\
+    OMOPDrugExposure, OMOPProcedureOccurance, OMOPObservation,\
+    OMOPConditionOccurance, OMOPDeath
 from oreader.base import DataObject, schema, IntegerColumn, StringColumn,\
     RealColumn, DateColumn, backrelate, relate, sqa_schema, DateTimeColumn
 from sqlalchemy.engine import create_engine
@@ -30,31 +32,6 @@ Seems like this should be hosted somewhere else than that for these purposes
 (or re-written)
 '''
 
-def take(n, iterable):
-    "Return first n items of the iterable as a list"
-    return list(islice(iterable, n))
-
-def sqa_col(col):
-    if isinstance(col, IntegerColumn):
-        sqa_type = Integer()
-    elif isinstance(col, StringColumn):
-        sqa_type = String()
-    elif isinstance(col, RealColumn):
-        sqa_type = Float()
-    elif isinstance(col, DateColumn):
-        sqa_type = Date()
-    # adding this because we are getting DateTimeColumn objects
-    elif isinstance(col, DateTimeColumn):
-        sqa_type = DateTime()
-    else:
-        assert('Got a {0} type for {1}').format(type(col), col.name)
-    name = col.name
-    return Column(name, sqa_type)
-
-def table_from_class(klass, metadata, name):
-    cols = [sqa_col(col) for col in klass.columns]
-    return Table(name, metadata, *cols)
-
 
 class ChartObj(DataObject):
     partition_attribute = 'row_id'
@@ -72,24 +49,117 @@ class Patient(ChartObj):
         Create a standard Person. Set attributes in the arguments to match init over in Standard
         Have this create all of the needed information 
         '''        
-        person = OMOPPerson(person_id=self.subject_id, DOB=self.dob, DOD=self.dod, 
-                          gender=self.gender, expire_flag=self.expire_flag, 
-                          drug_exposures = self.drug_exposures, visit_occurances = self.visit_occurances, 
-                          procedures = self.procedures, observations = self.observations, 
-                          conditions = self.conditions, death = self.death, index_admission = None)
+        person = OMOPPerson(
+                          person_id=self.subject_id, 
+                          DOB=self.dob, DOD=self.dod, 
+                          gender=self.gender, 
+                          expire_flag=self.expire_flag, 
+                          drug_exposures = self.drug_exposures, 
+                          visit_occurances = self.visit_occurances, 
+                          procedures = self.procedures, 
+                          observations = self.observations, 
+                          conditions = self.conditions, 
+                          death = self.death, 
+                          index_admission = None)
         # for testing
         print("person id {0}").format(person.person_id)
         return person
+    
+    @property
+    def visit_occurances(self):
+        visit_occurances = self.admissions
+        return_occurances = [] 
+        for visit_occurance in visit_occurances:
+            return_occurances.append(OMOPVisitOccurance(
+                                visit_occurance_id=visit_occurance.row_id, 
+                                person_id=self.subject_id, 
+                                visit_start_date=visit_occurance.admittime, 
+                                visit_end_date = visit_occurance.dischtime, 
+                                place_of_service_source_value=visit_occurance.admission_location, 
+                                diagnosis = visit_occurance.diagnosis, 
+#                                 time_in_ed = something_calculated, # define how to calculate this
+                                admission_type = visit_occurance.admission_type))
+        return return_occurances
+    
+    @property 
+    def drug_exposures(self): 
+        """ 
+        is subject_id the right argument here? Ideally you'd want to pass in a person object? 
+        """
+         
+        drug_exposures = self.prescriptions
+        return_occurances = [] 
+        for drug_exposure in drug_exposures: 
+            return_occurances.append(OMOPDrugExposure(visit_occurance_id= drug_exposure.hadm_id, 
+                                exposure_id=drug_exposure.row_id, 
+                                person_id= self.subject_id, 
+                                starttime=drug_exposure.startdate, 
+                                endtime=drug_exposure.enddate, 
+                                ndc=drug_exposure.ndc))
+        return return_occurances
+    
+    @property    
+    def procedures(self):
+        procedures = self.procedureevents_mv
+        return_procedures = [] 
+        for procedure in procedures: 
+            return_procedures.append(OMOPProcedureOccurance(
+                                          procedure_occurance_id = procedure.row_id, 
+                                          person_id = self.subject_id, 
+                                          procedure_date = procedure.starttime, 
+                                          provider_id = procedure.cgid))
+            
+        return return_procedures
+    
+    @property        
+    def observations(self):
+        observations = self.labevents
+        return_observations = [] 
+        for observation in observations: 
+            return_observations.append(OMOPObservation(observation_id = observation.row_id, 
+                               person_id = self.subject_id, 
+                               observation_date = observation.charttime, # format
+                               observation_time = observation.charttime, # format
+                               admission_id = observation.hadm_id, 
+                               observation_type = observation.itemid, 
+                               observation_value = observation.value))
+        return return_observations
+    
+    @property   
+    def conditions(self):
+        conditions = self.diagnoses_ICD
+        return_conditions = []
+        for condition in conditions: 
+            return_conditions.append(OMOPConditionOccurance(condition_occurance_id = condition.row_id , 
+                                      person_id = self.subject_id, 
+                                      admission_id = condition.hadm_id,
+                                      icd9_code = None, 
+                                      icd9_title = None))
+            
+    @property    
+    def death(self):
+        """ 
+        - Currently just based off Admissions / Diagnosis_ICD data; there may be chart data that helps 
+        """
+        if self.expire_flag ==  1:
+            admissions = self.admissions
+            for admission in admissions: 
+                if admission.hospital_expire_flag ==  1: # contrary to documentation, positive flag is 1, not "Y"
+                    death = OMOPDeath(person_id = self.subject_id, death_date = admission.deathtime) # no ICD9_code implemented                            
+                else: 
+                    death = None  
+        else: 
+            death = None
+        return death
  
 @sqa_schema(metadata.tables['mimiciii.admissions']) 
-# @backrelate({'admissions': (Patient, True)})
+@backrelate({'admissions': (Patient, True)})
 class Admission(ChartObj):
     identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id', 'subject_id') 
     container_key = (('subject_id', 'subject_id'))
      
 @sqa_schema(metadata.tables['mimiciii.callout']) # is this table singular?
-# @backrelate({'callouts': (Patient, True), 'callouts': (Admission, True)})  
 class Callout(ChartObj):
     identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
     sort_key_ = ('row_id', 'subject_id', 'hadm_id') 
@@ -102,9 +172,6 @@ class Caregiver(ChartObj):
     container_key = (('row_id', 'id'))
 
 @sqa_schema(metadata.tables['mimiciii.chartevents'])
-@backrelate({'chartevents': (Patient, True), 'chartevents': (Admission, True), \
-            'chartevents': (Icustay, True), 'chartevents': (D_Item, True), \
-            'chartevents': (Caregiver, True)})
 class ChartEvent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('icustay_id', 'icustay_id'), \
                      ('item_id', 'item_id'), ('cgid', 'cgid'))
@@ -114,7 +181,6 @@ class ChartEvent(ChartObj):
  
    
 @sqa_schema(metadata.tables['mimiciii.cptevents'])
-@backrelate({'cptevents': (Patient, True), 'cptevents': (Admission, True)})
 class CPTevent(ChartObj):
         identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
         sort_key_ = ('row_id', 'subject_id', 'hadm_id')
@@ -153,6 +219,7 @@ class Datetimeevent(ChartObj):
     
 
 @sqa_schema(metadata.tables['mimiciii.diagnoses_icd'])
+@backrelate({'diagnoses', (Patient, True)})
 class Diagnosis_ICD(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id')
@@ -185,6 +252,7 @@ class Inputevent_MV(ChartObj):
 
 # why does 'itemid' not seem right here? Taken from mapper
 @sqa_schema(metadata.tables['mimiciii.labevents'])
+@backrelate({'labevents', (Patient, True)})
 class Labevent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('itemid', 'itemid'))
     sort_key_ = ('row_id', 'itemid', 'hadm_id', 'subject_id')
@@ -211,12 +279,14 @@ class Outputevent(ChartObj):
 
 
 @sqa_schema(metadata.tables['mimiciii.prescriptions'])
+@backrelate({'prescriptions', (Patient, True)})
 class Prescription(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id', 'icustay_id','hadm_id', 'subject_id')
     container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
 
 @sqa_schema(metadata.tables['mimiciii.procedureevents_mv'])
+@backrelate({'procedures', (Patient, True)})
 class Procedureevent_MV(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
     sort_key_ = ('row_id')
@@ -240,112 +310,4 @@ class Transfer(ChartObj):
     sort_key_ = ('row_id', 'icustay_id', 'hadm_id', 'subject_id')
     container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
-'''
- Settings? Mappings? Pulling these from the test file and trying to re-work them
-- Does any of this belong here or does it belong somewhere else? 
-'''
-    
-# # Create a test database and table
-# # Not sure any of this has to be in here in the end 
-engine = create_engine('sqlite://') # does this need to be something else? 
-metadata = MetaData(bind=engine)
-
-
-# need to write one of these for all classes 
-# Define the mapping between tables and objects for writing
-patients_table = table_from_class(Patient, metadata, 'patients')
-admissions_table = table_from_class(Admission, metadata, 'admissions')
-caregivers_table = table_from_class(Caregiver, metadata, 'caregivers')
-callouts_table = table_from_class(Callout, metadata, 'callouts')
-chartevents_table = table_from_class(ChartEvent, metadata, 'chartevents')
-cptevents_table = table_from_class(CPTevent, metadata, 'cptevents')
-# d_icd_diagnoses_table = table_from_class(D_ICD_Diagnosis, metadata, 'd_icd_diagnoses') # hold
-# d_icd_procedures_table = table_from_class(D_ICD_Procedure, metadata, 'd_icd_procedures') # hold
-d_items_table = table_from_class(D_Item, metadata, 'd_items')
-d_labitems_table = table_from_class(D_Labitem, metadata, 'd_labitems')
-datetimeevents_table = table_from_class(Datetimeevent, metadata, 'datetimeevents')
-diagnosis_icd_table = table_from_class(Diagnosis_ICD, metadata, 'diagnoses_icd')
-drg_codes_table = table_from_class(Drgcode, metadata, 'drgcodes')
-icustay_codes_table = table_from_class(Icustay, metadata, 'icustays')
-inputevents_cv_table = table_from_class(Inputevent_CV, metadata, 'inputevents_cv')
-inputevents_mv_table = table_from_class(Inputevent_MV, metadata, 'inputevents_mv')
-labevents_table = table_from_class(Labevent, metadata, 'labevents')
-microbiologyevents_table = table_from_class(Microbiologyevent, metadata, 'microbiologyevents')
-noteevents_table = table_from_class(Noteevent, metadata, 'noteevents')
-outputevents_table = table_from_class(Outputevent, metadata, 'outputevents')
-prescrptions_table = table_from_class(Prescription, metadata, 'prescriptions')
-procedureevents_mv_table = table_from_class(Procedureevent_MV, metadata, 'procedureevents_mv')
-procedures_icd_table = table_from_class(Procedure_ICD, metadata, 'procedures_icd')
-services_table = table_from_class(Service, metadata, 'services')
-transfers_table = table_from_class(Transfer, metadata, 'transfers')
-
-metadata.create_all()
-
-
-
- 
-# Define the mapping between tables and objects for writing
-writer_config = {
-                Patient: SqaWriterConfig(patients_table, create_table_if_not_exist=True),
-                Admission: SqaWriterConfig(admissions_table, create_table_if_not_exist=True),
-                Caregiver: SqaWriterConfig(caregivers_table, create_table_if_not_exist=True),
-                Callout: SqaWriterConfig(callouts_table, create_table_if_not_exist=True),
-                ChartEvent: SqaWriterConfig(chartevents_table, create_table_if_not_exist=True),
-                CPTevent: SqaWriterConfig(cptevents_table, create_table_if_not_exist=True),
-#                 D_ICD_Diagnosis: SqaWriterConfig(d_icd_diagnoses_table, create_table_if_not_exist=True),
-#                 D_ICD_Procedure: SqaWriterConfig( d_icd_procedures_table, create_table_if_not_exist=True),
-                D_Item: SqaWriterConfig(d_items_table, create_table_if_not_exist=True),
-                D_Labitem: SqaWriterConfig(d_labitems_table, create_table_if_not_exist=True),
-                Datetimeevent: SqaWriterConfig(datetimeevents_table, create_table_if_not_exist=True),
-                Diagnosis_ICD: SqaWriterConfig(diagnosis_icd_table, create_table_if_not_exist=True),
-                Drgcode: SqaWriterConfig(drg_codes_table, create_table_if_not_exist=True),
-                Icustay: SqaWriterConfig(icustay_codes_table, create_table_if_not_exist=True),
-                Inputevent_CV: SqaWriterConfig(inputevents_cv_table, create_table_if_not_exist=True),
-                Inputevent_MV: SqaWriterConfig(inputevents_mv_table, create_table_if_not_exist=True),
-                Labevent: SqaWriterConfig(labevents_table, create_table_if_not_exist=True),
-                Microbiologyevent: SqaWriterConfig(microbiologyevents_table, create_table_if_not_exist=True),
-                Noteevent: SqaWriterConfig(noteevents_table, create_table_if_not_exist=True),
-                Outputevent: SqaWriterConfig(outputevents_table, create_table_if_not_exist=True),
-                Prescription: SqaWriterConfig(prescrptions_table, create_table_if_not_exist=True),
-                Procedureevent_MV: SqaWriterConfig(procedureevents_mv_table, create_table_if_not_exist=True),
-                Procedure_ICD: SqaWriterConfig(procedures_icd_table, create_table_if_not_exist=True),
-                Service: SqaWriterConfig(services_table, create_table_if_not_exist=True),
-                Transfer: SqaWriterConfig(transfers_table, create_table_if_not_exist=True)
-                }
-            
-
-# Define the mapping between tables and objects for reading
-# what is engine here? why would it be in mppaer
-reader_config = {
-                Patient: SqaReaderConfig(patients_table, engine),
-                Admission: SqaReaderConfig(admissions_table, engine),
-                Caregiver: SqaReaderConfig(caregivers_table, engine),
-                Callout: SqaReaderConfig(callouts_table, engine),
-                ChartEvent: SqaReaderConfig(chartevents_table, engine),
-                CPTevent: SqaReaderConfig(cptevents_table, engine),
-#                 D_ICD_Diagnosis: SqaReaderConfig(d_icd_diagnoses_table, engine),
-#                 D_ICD_Procedure: SqaReaderConfig( d_icd_procedures_table, engine),
-                D_Item: SqaReaderConfig(d_items_table, engine),
-                D_Labitem: SqaReaderConfig(d_labitems_table, engine),
-                Datetimeevent: SqaReaderConfig(datetimeevents_table, engine),
-                Diagnosis_ICD: SqaReaderConfig(diagnosis_icd_table, engine),
-                Drgcode: SqaReaderConfig(drg_codes_table, engine),
-                Icustay: SqaReaderConfig(icustay_codes_table, engine),
-                Inputevent_CV: SqaReaderConfig(inputevents_cv_table, engine),
-                Inputevent_MV: SqaReaderConfig(inputevents_mv_table, engine),
-                Labevent: SqaReaderConfig(labevents_table, engine),
-                Microbiologyevent: SqaReaderConfig(microbiologyevents_table, engine),
-                Noteevent: SqaReaderConfig(noteevents_table, engine),
-                Outputevent: SqaReaderConfig(outputevents_table, engine),
-                Prescription: SqaReaderConfig(prescrptions_table, engine),
-                Procedureevent_MV: SqaReaderConfig(procedureevents_mv_table, engine),
-                Procedure_ICD: SqaReaderConfig(procedures_icd_table, engine),
-                Service: SqaReaderConfig(services_table, engine),
-                Transfer: SqaReaderConfig(transfers_table, engine)
-                }
-
-
-
-#     
-    
     
