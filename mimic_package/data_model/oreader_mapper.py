@@ -3,7 +3,6 @@ Created on Jan 13, 2017
 
 @author: mattlewis
 '''
-from mimic_package.data_model.mapper import D_Item, Icustay, Chartevent, Patient
 from mimic_package.data_model.standard import OMOPPerson, OMOPVisitOccurance,\
     OMOPDrugExposure, OMOPProcedureOccurance, OMOPObservation,\
     OMOPConditionOccurance, OMOPDeath
@@ -39,9 +38,10 @@ class ChartObj(DataObject):
 
 @sqa_schema(metadata.tables['mimiciii.patients'])
 class Patient(ChartObj):
-    identity_key_ = (('row_id', 'id'))
-    sort_key_ = ('row_id', 'id')
-    container_key_ = (('row_id', 'id')) # this is following example in read_write; don't quite get it... 
+    partition_attribute = 'row_id'
+    identity_key_ = (('row_id', 'id'),) # this could throw an error 
+    sort_key_ = ('row_id',)
+    container_key_ = (('row_id', 'id'),) # this is following example in read_write; don't quite get it... 
      
     @property
     def person(self):
@@ -209,7 +209,6 @@ class D_Labitem(ChartObj):
     container_key = (('row_id', 'id')) 
 
 @sqa_schema(metadata.tables['mimiciii.datetimeevents'])
-# @backrelate({'datetimeevents': (Admission, True), 'datetimeevents': })
 class Datetimeevent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id' ), ('itemid', 'itemid'), ('cgid', 'cgid'), \
                      ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
@@ -219,10 +218,10 @@ class Datetimeevent(ChartObj):
     
 
 @sqa_schema(metadata.tables['mimiciii.diagnoses_icd'])
-@backrelate({'diagnoses', (Patient, True)})
+@backrelate({'diagnoses': (Patient, True)})
 class Diagnosis_ICD(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
-    sort_key_ = ('row_id')
+    sort_key_ = ('row_id',)
     container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
 @sqa_schema(metadata.tables['mimiciii.drgcodes'])
@@ -252,7 +251,7 @@ class Inputevent_MV(ChartObj):
 
 # why does 'itemid' not seem right here? Taken from mapper
 @sqa_schema(metadata.tables['mimiciii.labevents'])
-@backrelate({'labevents', (Patient, True)})
+@backrelate({'labevents': (Patient, True)})
 class Labevent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('itemid', 'itemid'))
     sort_key_ = ('row_id', 'itemid', 'hadm_id', 'subject_id')
@@ -279,17 +278,17 @@ class Outputevent(ChartObj):
 
 
 @sqa_schema(metadata.tables['mimiciii.prescriptions'])
-@backrelate({'prescriptions', (Patient, True)})
+@backrelate({'prescriptions': (Patient, True)})
 class Prescription(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id', 'icustay_id','hadm_id', 'subject_id')
     container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
 
 @sqa_schema(metadata.tables['mimiciii.procedureevents_mv'])
-@backrelate({'procedures', (Patient, True)})
+@backrelate({'procedures': (Patient, True)})
 class Procedureevent_MV(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
-    sort_key_ = ('row_id')
+    sort_key_ = ('row_id',)
     container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
 
 @sqa_schema(metadata.tables['mimiciii.procedures_icd'])
@@ -310,4 +309,3 @@ class Transfer(ChartObj):
     sort_key_ = ('row_id', 'icustay_id', 'hadm_id', 'subject_id')
     container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
-    
