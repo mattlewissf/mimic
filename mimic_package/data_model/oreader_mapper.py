@@ -39,9 +39,9 @@ class ChartObj(DataObject):
 @sqa_schema(metadata.tables['mimiciii.patients'])
 class Patient(ChartObj):
     partition_attribute = 'row_id'
-    identity_key_ = (('row_id', 'id'),) # this could throw an error 
-    sort_key_ = ('row_id',)
-    container_key_ = (('row_id', 'id'),) # this is following example in read_write; don't quite get it... 
+    identity_key_ = (('subject_id', 'subject_id'),) # this could throw an error 
+    sort_key_ = ('subject_id',)
+    container_key_ = (('subject_id', 'subject_id'),) # this is following example in read_write; don't quite get it... 
      
     @property
     def person(self):
@@ -56,7 +56,7 @@ class Patient(ChartObj):
                           expire_flag=self.expire_flag, 
                           drug_exposures = self.drug_exposures, 
                           visit_occurances = self.visit_occurances, 
-                          procedures = self.procedures, 
+                          procedures = self.procedures_, 
                           observations = self.observations, 
                           conditions = self.conditions, 
                           death = self.death, 
@@ -99,7 +99,7 @@ class Patient(ChartObj):
         return return_occurances
     
     @property    
-    def procedures(self):
+    def procedures_(self):
         procedures = self.procedureevents_mv
         return_procedures = [] 
         for procedure in procedures: 
@@ -155,28 +155,28 @@ class Patient(ChartObj):
 @sqa_schema(metadata.tables['mimiciii.admissions']) 
 @backrelate({'admissions': (Patient, True)})
 class Admission(ChartObj):
-    identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'))
-    sort_key_ = ('row_id', 'subject_id') 
-    container_key = (('subject_id', 'subject_id'))
+    identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
+    sort_key_ = ('subject_id', 'hadm_id') 
+    container_key_ = (('subject_id', 'subject_id'),)
      
 @sqa_schema(metadata.tables['mimiciii.callout']) # is this table singular?
 class Callout(ChartObj):
-    identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
-    sort_key_ = ('row_id', 'subject_id', 'hadm_id') 
-    container_key = (('row_id', 'row_id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
-     
+    identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
+    sort_key_ = ('subject_id', 'hadm_id', 'row_id') 
+    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
+    
 @sqa_schema(metadata.tables['mimiciii.caregivers'])
 class Caregiver(ChartObj):
-    identity_key_ = (('row_id', 'id'))
+    identity_key_ = (('row_id', 'id'),)
     sort_key_ = ('row_id')
-    container_key = (('row_id', 'id'))
+    container_key_ = (('row_id', 'id'),)
 
 @sqa_schema(metadata.tables['mimiciii.chartevents'])
 class ChartEvent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('icustay_id', 'icustay_id'), \
                      ('item_id', 'item_id'), ('cgid', 'cgid'))
     sort_key_ = ('row_id', 'subject_id', 'hadm_id') 
-    container_key = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('icustay_id', 'icustay_id'), \
+    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('icustay_id', 'icustay_id'), \
                      ('item_id', 'item_id'), ('cgid', 'cgid'))
  
    
@@ -184,7 +184,7 @@ class ChartEvent(ChartObj):
 class CPTevent(ChartObj):
         identity_key_ = (('row_id', 'id'), ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
         sort_key_ = ('row_id', 'subject_id', 'hadm_id')
-        container_key = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
+        container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
 
 @sqa_schema(metadata.tables['mimiciii.d_icd_diagnoses'])
 class D_ICD_Diagnosis(ChartObj):
@@ -200,112 +200,113 @@ class D_ICD_Procedure(ChartObj):
 class D_Item(ChartObj):
     identity_key_ = (('row_id', 'id'))
     sort_key_ = ('row_id')
-    container_key = (('row_id', 'id')) 
+    container_key_ = (('row_id', 'id')) 
 
 @sqa_schema(metadata.tables['mimiciii.d_labitems'])
 class D_Labitem(ChartObj):
     identity_key_ = (('row_id', 'id'))
     sort_key_ = ('row_id')
-    container_key = (('row_id', 'id')) 
+    container_key_ = (('row_id', 'id')) 
 
 @sqa_schema(metadata.tables['mimiciii.datetimeevents'])
 class Datetimeevent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id' ), ('itemid', 'itemid'), ('cgid', 'cgid'), \
                      ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
     sort_key_ = ('row_id')
-    container_key = (('icustay_id', 'icustay_id' ), ('itemid', 'itemid'), ('cgid', 'cgid'), \
+    container_key_ = (('icustay_id', 'icustay_id' ), ('itemid', 'itemid'), ('cgid', 'cgid'), \
                      ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
     
 
 @sqa_schema(metadata.tables['mimiciii.diagnoses_icd'])
-@backrelate({'diagnoses': (Patient, True)})
+@backrelate({'diagnoses': (Admission, True)})
 class Diagnosis_ICD(ChartObj):
-    identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
-    sort_key_ = ('row_id',)
-    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
+    identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('seq_num', 'seq_num'))
+    sort_key_ = ('subject_id', 'hadm_id', 'seq_num')
+    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id')) 
 
 @sqa_schema(metadata.tables['mimiciii.drgcodes'])
 class Drgcode(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id')
-    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
+    container_key_ = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
 
 @sqa_schema(metadata.tables['mimiciii.icustays'])
 class Icustay(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id')
-    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
+    container_key_ = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
 @sqa_schema(metadata.tables['mimiciii.inputevents_cv'])    
 class Inputevent_CV(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
     sort_key_ = ('row_id')
-    container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
+    container_key_ = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
 
 @sqa_schema(metadata.tables['mimiciii.inputevents_mv'])
 class Inputevent_MV(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
     sort_key_ = ('row_id')
-    container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
+    container_key_ = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
 
 # why does 'itemid' not seem right here? Taken from mapper
 @sqa_schema(metadata.tables['mimiciii.labevents'])
-@backrelate({'labevents': (Patient, True)})
+@backrelate({'labevents': (Admission, True)})
 class Labevent(ChartObj):
-    identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('itemid', 'itemid'))
-    sort_key_ = ('row_id', 'itemid', 'hadm_id', 'subject_id')
-    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('itemid', 'itemid')) 
+    identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
+    sort_key_ = ('subject_id', 'hadm_id', 'row_id')
+    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id')) 
 
 @sqa_schema(metadata.tables['mimiciii.microbiologyevents'])
 class Microbiologyevent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id')
-    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
+    container_key_ = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
 @sqa_schema(metadata.tables['mimiciii.noteevents'])
 class Noteevent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
     sort_key_ = ('row_id', 'cgid', 'subject_id', 'icustay_id')
-    container_key = (('icustay_id', 'icustay_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
+    container_key_ = (('icustay_id', 'icustay_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
 
 
 @sqa_schema(metadata.tables['mimiciii.outputevents'])
 class Outputevent(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
     sort_key_ = ('row_id', 'icustay_id', 'hadm_id') # does it need all? 
-    container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
+    container_key_ = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
 
 
 @sqa_schema(metadata.tables['mimiciii.prescriptions'])
 @backrelate({'prescriptions': (Patient, True)})
 class Prescription(ChartObj):
-    identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
-    sort_key_ = ('row_id', 'icustay_id','hadm_id', 'subject_id')
-    container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
+    # What's the deal with icustay_id
+    identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
+    sort_key_ = ('subject_id', 'hadm_id','row_id')
+    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
 
 @sqa_schema(metadata.tables['mimiciii.procedureevents_mv'])
 @backrelate({'procedures': (Patient, True)})
 class Procedureevent_MV(ChartObj):
-    identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
-    sort_key_ = ('row_id',)
-    container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
+    identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
+    sort_key_ = ('subject_id', 'hadm_id', 'row_id')
+    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
 
 @sqa_schema(metadata.tables['mimiciii.procedures_icd'])
 class Procedure_ICD(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id')
-    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
+    container_key_ = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
 @sqa_schema(metadata.tables['mimiciii.services'])
 class Service(ChartObj):
     identity_key_ = (('row_id', 'id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id')
-    container_key = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
+    container_key_ = (('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
 @sqa_schema(metadata.tables['mimiciii.transfers'])
 class Transfer(ChartObj):
     identity_key_ = (('row_id', 'id'), ('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'))
     sort_key_ = ('row_id', 'icustay_id', 'hadm_id', 'subject_id')
-    container_key = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
+    container_key_ = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id')) 
 
