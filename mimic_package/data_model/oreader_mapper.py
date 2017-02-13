@@ -43,7 +43,8 @@ class Patient(ChartObj):
     sort_key_ = ('subject_id',)
     container_key_ = (('subject_id', 'subject_id'),) # this is following example in read_write; don't quite get it... 
      
-    @property
+
+    @property   
     def person(self):
         '''
         Create a standard Person. Set attributes in the arguments to match init over in Standard
@@ -100,7 +101,7 @@ class Patient(ChartObj):
     
     @property    
     def procedures_(self):
-        procedures = self.procedureevents_mv
+        procedures = self.procedures
         return_procedures = [] 
         for procedure in procedures: 
             return_procedures.append(OMOPProcedureOccurance(
@@ -278,7 +279,7 @@ class Outputevent(ChartObj):
 
 
 @sqa_schema(metadata.tables['mimiciii.prescriptions'])
-@backrelate({'prescriptions': (Patient, True)})
+@backrelate({'prescriptions': (Admission, True)})
 class Prescription(ChartObj):
     # What's the deal with icustay_id
     identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
@@ -286,7 +287,7 @@ class Prescription(ChartObj):
     container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
 
 @sqa_schema(metadata.tables['mimiciii.procedureevents_mv'])
-@backrelate({'procedures': (Patient, True)})
+@backrelate({'procedures': (Admission, True)})
 class Procedureevent_MV(ChartObj):
     identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
     sort_key_ = ('subject_id', 'hadm_id', 'row_id')
