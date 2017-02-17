@@ -144,8 +144,8 @@ def create_sqa_writer_config(connection_string, table_names=None):
             
 
 # Define the mapping between tables and objects for reading
-def create_sqa_reader_config(connection_string, table_names=None, schema='mimiciii', **kwargs):
-    engine = create_engine(connection_string, echo=True)
+def create_sqa_reader_config(connection_string, table_names=None, schema='mimiciii', echo=False, **kwargs):
+    engine = create_engine(connection_string, echo=echo)
     metadata = MetaData(bind=engine, schema=schema)
     tables = create_tables(metadata, table_names)
     reader_config = {klass: SqaReaderConfig(table, engine, **kwargs) for klass, table in tables.items()}
