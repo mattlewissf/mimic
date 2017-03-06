@@ -6,7 +6,7 @@ try:
     with open(password_file, 'rb') as infile:
         password = infile.read().strip()
 except:
-    password = None
+    password = ''
 db = 'mimic'
 port = '5432'
 

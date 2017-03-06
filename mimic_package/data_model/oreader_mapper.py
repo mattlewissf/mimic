@@ -19,7 +19,7 @@ import datetime
 from oreader.reader_configs import SqaReaderConfig
 from itertools import islice, chain, cycle
 import unittest
-from frozendict import frozendict
+# from frozendict import frozendict
 from nose.tools import assert_list_equal, assert_raises, assert_equal, eq_
 from oreader.groups import create_attribute_group_mixin,\
     AttributeGroup, AttributeGroupList
@@ -52,7 +52,8 @@ class Patient(ChartObj):
         '''        
         person = OMOPPerson(
                           person_id=self.subject_id, 
-                          DOB=self.dob, DOD=self.dod, 
+                          DOB=self.dob, 
+                          DOD=self.dod, 
                           gender=self.gender, 
                           expire_flag=self.expire_flag, 
                           drug_exposures = self.drug_exposures, 
@@ -128,7 +129,7 @@ class Patient(ChartObj):
     
     @property   
     def conditions(self):
-        conditions = self.diagnoses_ICD
+        conditions = self.diagnoses
         return_conditions = []
         for condition in conditions: 
             return_conditions.append(OMOPConditionOccurance(condition_occurance_id = condition.row_id , 
@@ -136,6 +137,7 @@ class Patient(ChartObj):
                                       admission_id = condition.hadm_id,
                                       icd9_code = None, 
                                       icd9_title = None))
+        return return_conditions
             
     @property    
     def death(self):
@@ -216,14 +218,13 @@ class Datetimeevent(ChartObj):
     sort_key_ = ('row_id')
     container_key_ = (('icustay_id', 'icustay_id' ), ('itemid', 'itemid'), ('cgid', 'cgid'), \
                      ('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
-    
 
 @sqa_schema(metadata.tables['mimiciii.diagnoses_icd'])
-@backrelate({'diagnoses': (Admission, True)})
+@backrelate({'diagnoses': (Patient, True)})
 class Diagnosis_ICD(ChartObj):
     identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('seq_num', 'seq_num'))
     sort_key_ = ('subject_id', 'hadm_id', 'seq_num')
-    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id')) 
+    container_key_ = (('subject_id', 'subject_id'),) 
 
 @sqa_schema(metadata.tables['mimiciii.drgcodes'])
 class Drgcode(ChartObj):
@@ -250,13 +251,12 @@ class Inputevent_MV(ChartObj):
     sort_key_ = ('row_id')
     container_key_ = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
 
-# why does 'itemid' not seem right here? Taken from mapper
 @sqa_schema(metadata.tables['mimiciii.labevents'])
-@backrelate({'labevents': (Admission, True)})
+@backrelate({'labevents': (Patient, True)})
 class Labevent(ChartObj):
     identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
     sort_key_ = ('subject_id', 'hadm_id', 'row_id')
-    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id')) 
+    container_key_ = (('subject_id', 'subject_id'),) 
 
 @sqa_schema(metadata.tables['mimiciii.microbiologyevents'])
 class Microbiologyevent(ChartObj):
@@ -277,21 +277,20 @@ class Outputevent(ChartObj):
     sort_key_ = ('row_id', 'icustay_id', 'hadm_id') # does it need all? 
     container_key_ = (('icustay_id', 'icustay_id'), ('hadm_id', 'hadm_id'), ('subject_id', 'subject_id'), ('cgid', 'cgid'))
 
-
 @sqa_schema(metadata.tables['mimiciii.prescriptions'])
-@backrelate({'prescriptions': (Admission, True)})
+@backrelate({'prescriptions': (Patient, True)})
 class Prescription(ChartObj):
     # What's the deal with icustay_id
     identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
     sort_key_ = ('subject_id', 'hadm_id','row_id')
-    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
-
+    container_key_ = (('subject_id', 'subject_id'),)
+    
 @sqa_schema(metadata.tables['mimiciii.procedureevents_mv'])
-@backrelate({'procedures': (Admission, True)})
+@backrelate({'procedures': (Patient, True)})
 class Procedureevent_MV(ChartObj):
     identity_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'), ('row_id', 'row_id'))
     sort_key_ = ('subject_id', 'hadm_id', 'row_id')
-    container_key_ = (('subject_id', 'subject_id'), ('hadm_id', 'hadm_id'))
+    container_key_ = (('subject_id', 'subject_id'),)
 
 @sqa_schema(metadata.tables['mimiciii.procedures_icd'])
 class Procedure_ICD(ChartObj):
