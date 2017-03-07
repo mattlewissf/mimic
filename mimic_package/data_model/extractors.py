@@ -171,7 +171,6 @@ for person in persons:
 
 df = pd.DataFrame(data=np_data[1:,:], columns=df_columns) 
 
-'''
 # hacky force to int in pandas 
 df.person_id = df.person_id.astype(int)
 df.person_index_age = df.person_index_age.astype(int)
