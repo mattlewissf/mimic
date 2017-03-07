@@ -1,7 +1,9 @@
 import os
 import numpy as np
 import pandas as pd
-# from sklearn.ensemble import RandomForestClassifier
+from sklearn import cross_validation
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from mimic_package.connect.locations import features_dir, export_dir
@@ -139,7 +141,7 @@ def apply_extractors(person):
         assign_index_record(person)
         if person.index_admission.admission_type == 'NEWBORN':
             return None
-        person_id = person.person_id # is this needed? using as an index? 
+#         person_id = person.person_id # is this needed? using as an index? 
         person_index_age = get_person_index_age(person)
         if person_index_age > 120: 
             return None # this is a bug in DOB for ~10~ of patients
@@ -147,7 +149,7 @@ def apply_extractors(person):
         person_gender = get_person_gender(person)
         admission_rate = get_admission_rate(person)
         readmit_30 = get_readmit_30(person)
-        features = [person_id, person_index_age, index_admission_length, person_gender, admission_rate, readmit_30]
+        features = [person_index_age, index_admission_length, person_gender, admission_rate, readmit_30]
         return features 
 
 def export_to_csv(df, name):
@@ -158,10 +160,10 @@ def export_to_csv(df, name):
 pseudo controller section
 '''
 
-df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate", "readmit_30"]
+df_columns = ["person_index_age","index_admission_length","person_gender", "admission_rate", "readmit_30"]
 empty_col = [0 for x in df_columns]
 np_data = np.array(empty_col)
-persons = create_test_batch(10)
+persons = create_test_batch(2000)
 
 for person in persons: 
     features = apply_extractors(person)
@@ -172,10 +174,27 @@ for person in persons:
 df = pd.DataFrame(data=np_data[1:,:], columns=df_columns) 
 
 # hacky force to int in pandas 
-df.person_id = df.person_id.astype(int)
+# df.person_id = df.person_id.astype(int)
 df.person_index_age = df.person_index_age.astype(int)
 df.person_gender = df.person_gender.astype(int)
 df.readmit_30 = df.readmit_30.astype(int)
-# export out to exports dir
-export_to_csv(df, 'export_test')
+
+# export out to exports dfrom sklearn.metrics import accuracy_scoreir
+# export_to_csv(df, 'export_test')
+
+'''
+set up basic sklearn stuff
+'''
+sk_features = df.columns[:-1]
+X  = df[sk_features]
+y = df["readmit_30"]
+X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=0.35)
+
+clf_rf = RandomForestClassifier()
+clf_rf.fit(X_train, y_train)
+y_pred_rf = clf_rf.predict(X_test)
+
+acc_rf = accuracy_score(y_test, y_pred_rf)
+print(acc_rf)
+
 
