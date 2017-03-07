@@ -1,49 +1,57 @@
-# from mimic_package.data_model.mapper import Patient, Prescription
-from mimic_package.data_model.oreader_mapper import Patient, Prescription,\
-    reader_config
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from mimic_package.connect.connect import connection_string
-from sklearn.ensemble import RandomForestClassifier
+import os
 import numpy as np
 import pandas as pd
+# from sklearn.ensemble import RandomForestClassifier
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from mimic_package.data_model.resources import testing_pickle_filename
-import pickle
-from sqlalchemy.sql.schema import MetaData
+from mimic_package.connect.locations import features_dir, export_dir
+from mimic_package.data_model.oreader_mapper import Patient
+from mimic_package.connect.connect import connection_string
+from mimic_package.data_model.configs import create_sqa_reader_config
 
-# create sessions
-engine = create_engine(connection_string, echo=False, convert_unicode=True)
-metadata = MetaData(bind=engine)
-metadata.create_all()
+
+reader_config = create_sqa_reader_config(connection_string, limit_per=10000, n_tries=10)
 reader = Patient.reader(reader_config)
-
-# Session = sessionmaker(bind=engine)  
-# session = Session()
 
 """ 
 Extraction helper methods.
 """ 
 
-def query_db(record_class, limit=20):
-    records = session.query(record_class).limit(limit)# grabs arg Patient records / change after testing 
-    print("query done") # testing 
-    return records
-    
+# create persons for a test batch 
+def create_test_batch(batch_size):
+    persons = [] 
+    counter = 0 # refactor? 
+    for patient in reader:
+        if counter <= batch_size:
+            persons.append(patient.person)
+            counter += 1
+            print(counter)
+        else:
+            return persons
 
-def assign_index_record(person):# a Person class object 
+
+def grab_specific_persons(*args):
+    
+    person_collector = [] 
+    for x in reader: 
+        print(x.subject_id)
+        if x.subject_id in args:
+            person_collector.append(x.person)
+            if len(args) == len(person_collector):
+                return person_collector
+
+def assign_index_record(person): 
     sub_records = person.visit_occurances 
     if len(sub_records) != 0: # if there are associated objects, else skip 
         sub_records_shape = np.shape(sub_records)[0]
         sub_records_sample = np.random.choice(sub_records_shape)
         index_record = sub_records[sub_records_sample]
-        # check for future record
-        index_record = check_for_future_record(index_record, sub_records)
+        # baby check - need to refactor somewhere smarter
+        if index_record.admission_type == 'NEWBORN':
+            pass
         person.index_admission = index_record
     else: 
-        pass
-        # this might be creating a bug somewhere down below
+        person.index_admission = None
         
 def check_for_future_record(index_record, records, time_limit=30): # time_field is object attribute needed to look ahead
     """ takes a chosen index_record, looks forward to see if there is a record beyond it
@@ -51,7 +59,7 @@ def check_for_future_record(index_record, records, time_limit=30): # time_field 
     """
     # sort records by time
     records.sort(key= lambda x: x.visit_start_date, reverse=False)
-    index_record_index = records.index(index_record)
+    index_record_index = records.index(index_record) # finds the index of the index_record in the records? 
     if index_record.visit_occurance_id != records[-1].visit_occurance_id: # checks to make it isn't the last one
         next_future_record = records[index_record_index + 1]
         next_record_diff = next_future_record.visit_start_date - index_record.visit_start_date #hardcoded
@@ -62,33 +70,6 @@ def check_for_future_record(index_record, records, time_limit=30): # time_field 
         # compare aganst period generator (not built yet)
 
 """ 
-    My computer is really slow - this allows me to store a basic set of transformed 
-    Patient records as OMOPPerson objects to test extractor functionality
-"""        
-
-def create_testing_pickle(record_class):
-    counter = 0
-    raw_records = session.query(record_class).limit(500)
-    print("query done")
-    persons = [] 
-    for record in raw_records: 
-        if len(record.admissions) > 2 and counter < 10: # hardcode
-            print("yep {0}").format(record.subject_id)
-            person = record.person
-            persons.append(person)
-            counter += 1
-        else: 
-            print("nope")
-    
-    with open(testing_pickle_filename, 'wb') as outfile: 
-        pickle.dump(persons, outfile)
-
-def load_testing_pickle():
-    with open(testing_pickle_filename, 'rb') as infile: 
-        persons = pickle.load(infile)    
-        return persons
-    
-""" 
     All of the extractors are based on an index admission for a Person 
     Additional features to consider: 
     - ICD9 codes for index admission (grouped by category) 
@@ -96,10 +77,14 @@ def load_testing_pickle():
 """
 
 def get_person_index_age(person):
-    index_record_date = person.index_admission.visit_start_date
+    try: 
+        index_record_date = person.index_admission.visit_start_date
+    except AttributeError: 
+        print('boomp')
     person_dob = person.DOB
     person_age_at_index = index_record_date - person_dob
     person_age_at_index = format((person_age_at_index.total_seconds() / (365.25 * 86400)), '.2f') # convert to years 
+    
     return float(person_age_at_index)
 
 def get_index_admission_length(person):
@@ -131,7 +116,7 @@ def get_admission_rate(person):
 
 def get_readmit_30(person):
     ''' 
-    Look more into other models for this, and what exists in the MIMIC record: 
+    Look more into other models for this, and what eassign_index_recordxists in the MIMIC record: 
     - death w/in 30 days (in)
     - certain types of admissions (ex) 
     - transfers (in) 
@@ -151,58 +136,47 @@ def get_readmit_30(person):
 
 
 def apply_extractors(person):
-    if person.index_admission: # shouldn't need this check, person at this point needs to be clean 
-        # run extractors 
+        assign_index_record(person)
+        if person.index_admission.admission_type == 'NEWBORN':
+            return None
         person_id = person.person_id # is this needed? using as an index? 
         person_index_age = get_person_index_age(person)
+        if person_index_age > 120: 
+            return None # this is a bug in DOB for ~10~ of patients
         index_admission_length = get_index_admission_length(person)
         person_gender = get_person_gender(person)
         admission_rate = get_admission_rate(person)
         readmit_30 = get_readmit_30(person)
         features = [person_id, person_index_age, index_admission_length, person_gender, admission_rate, readmit_30]
         return features 
-    
-# pseudo controller
 
-create_testing_pickle(Patient)
+def export_to_csv(df, name):
+    path = '{0}/{1}.csv'.format(export_dir, name)
+    df.to_csv(path, sep='\t', encoding='utf-8')
 
-persons = load_testing_pickle()
-df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate", 'readmit_30']
-np_data = np.array(df_columns)
+'''
+pseudo controller section
+'''
+
+df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate", "readmit_30"]
+empty_col = [0 for x in df_columns]
+np_data = np.array(empty_col)
+persons = create_test_batch(10)
 
 for person in persons: 
-    assign_index_record(person)
     features = apply_extractors(person)
     if features: 
         np_data = np.vstack((np_data, features))
         print(features)
 
-# create training / testing sets 
-''' running on assumption that 40 / 60 is a good test / train ratio. Easily changeable. 
-    Why did I create the columns in the first place? Are those supposed to be there? 
-    Where do they go when I use sample or drop? 
+df = pd.DataFrame(data=np_data[1:,:], columns=df_columns) 
+
 '''
-all_data_df = pd.DataFrame(data=np_data[1:,:], columns=np_data[0,:])
+# hacky force to int in pandas 
+df.person_id = df.person_id.astype(int)
+df.person_index_age = df.person_index_age.astype(int)
+df.person_gender = df.person_gender.astype(int)
+df.readmit_30 = df.readmit_30.astype(int)
+# export out to exports dir
+export_to_csv(df, 'export_test')
 
-# clean data 
-
-
-#stupid names, change
-
-train_df = all_data_df.sample(frac=0.6)
-train_df2 = train_df.drop('readmit_30', axis=1) 
-test_df = all_data_df.drop(train_df.index)
-test_df2 = test_df.drop('readmit_30', axis=1) 
-
-
-# fit the model 
-rf = RandomForestClassifier(n_estimators= 100)
-m = rf.fit(test_df, test_df2)
-output = rf.predict(train_df)
-
-print "Features sorted by their score:"
-
-
-
-# model = Earth().fit(X, y)
-# print('testing')
