@@ -79,6 +79,8 @@ class Patient(ChartObj):
                                 visit_end_date = visit_occurance.dischtime, 
                                 place_of_service_source_value=visit_occurance.admission_location, 
                                 diagnosis = visit_occurance.diagnosis, 
+                                ethnicity = visit_occurance.ethnicity,
+                                marital_status = visit_occurance.marital_status,
 #                                 time_in_ed = something_calculated, # define how to calculate this
                                 admission_type = visit_occurance.admission_type))
         return return_occurances

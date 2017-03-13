@@ -1,8 +1,10 @@
 import os
 import numpy as np
 import pandas as pd
+import random
 from sklearn import cross_validation
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -10,6 +12,7 @@ from mimic_package.connect.locations import features_dir, export_dir
 from mimic_package.data_model.oreader_mapper import Patient
 from mimic_package.connect.connect import connection_string
 from mimic_package.data_model.configs import create_sqa_reader_config
+from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_values, marital_status_dict
 
 
 reader_config = create_sqa_reader_config(connection_string, limit_per=10000, n_tries=10)
@@ -33,7 +36,6 @@ def create_test_batch(batch_size):
 
 
 def grab_specific_persons(*args):
-    
     person_collector = [] 
     for x in reader: 
         print(x.subject_id)
@@ -41,9 +43,15 @@ def grab_specific_persons(*args):
             person_collector.append(x.person)
             if len(args) == len(person_collector):
                 return person_collector
+            
+            
+def export_to_csv(df, name):
+    path = '{0}/{1}.csv'.format(export_dir, name)
+    df.to_csv(path, sep='\t', encoding='utf-8')
+    
 
 def assign_index_record(person): 
-    sub_records = person.visit_occurances 
+    sub_records = person.visit_occurances
     if len(sub_records) != 0: # if there are associated objects, else skip 
         sub_records_shape = np.shape(sub_records)[0]
         sub_records_sample = np.random.choice(sub_records_shape)
@@ -52,8 +60,6 @@ def assign_index_record(person):
         if index_record.admission_type == 'NEWBORN':
             pass
         person.index_admission = index_record
-    else: 
-        person.index_admission = None
         
 def check_for_future_record(index_record, records, time_limit=30): # time_field is object attribute needed to look ahead
     """ takes a chosen index_record, looks forward to see if there is a record beyond it
@@ -71,12 +77,6 @@ def check_for_future_record(index_record, records, time_limit=30): # time_field 
         return None
         # compare aganst period generator (not built yet)
 
-""" 
-    All of the extractors are based on an index admission for a Person 
-    Additional features to consider: 
-    - ICD9 codes for index admission (grouped by category) 
-    - planned / unplanned admission 
-"""
 
 def get_person_index_age(person):
     try: 
@@ -102,10 +102,6 @@ def get_person_gender(person):
     if person_gender == "F": 
         return 1
 
-
-def get_person_ethnicity(person):
-    pass 
-    # note that this might require chartevents
 
 def get_admission_rate(person):
     # backwards 12 months of admissions / from CMS doc 
@@ -135,10 +131,46 @@ def get_readmit_30(person):
         return 1
     else: 
         return 0
+    
+def get_index_admission_codes(person):
+    '''
+    gather all ICD9 / ICD10 / hcpcs codes associated with index admission in a basic way
+    '''
+    pass
+
+def get_person_ethnicity(person):
+    '''
+    Ethnicity is noted in some Admissions (not Patient). See definitions file
+    '''
+    subrecords = person.visit_occurances
+    ethnicities = set([sub.ethnicity for sub in subrecords])
+    ethnicities = list(ethnicities)
+    if len(ethnicities) > 1: # if more than one ethnicity in records , picks one at random 
+        sub_records_shape = np.shape(subrecords)
+        sample = np.random.choice(sub_records_shape)
+        ethnicity =  ethnicities[sample -1]
+    else: 
+        ethnicity = ethnicities[0]
+    
+    if ethnicity_dict[ethnicity]:
+        return ethnicity_values[ethnicity_dict[ethnicity]]
+    else: 
+        return 0 # change this later? should None have another value?
+
+def get_person_marital(person):
+    '''
+    Marital status noted in some Admissions (not Patient). See definitions file
+    '''
+    if person.index_admission.marital_status:
+        return marital_status_dict[person.index_admission.marital_status]
+    else:    
+        return 0 # again, should None have another value?
 
 
 def apply_extractors(person):
         assign_index_record(person)
+        if person.index_admission == None: # leave out people with no index admission
+            return None
         if person.index_admission.admission_type == 'NEWBORN':
             return None
 #         person_id = person.person_id # is this needed? using as an index? 
@@ -147,23 +179,22 @@ def apply_extractors(person):
             return None # this is a bug in DOB for ~10~ of patients
         index_admission_length = get_index_admission_length(person)
         person_gender = get_person_gender(person)
+        person_ethnicity = get_person_ethnicity(person)
+        person_marital_status = get_person_marital(person)
         admission_rate = get_admission_rate(person)
         readmit_30 = get_readmit_30(person)
-        features = [person_index_age, index_admission_length, person_gender, admission_rate, readmit_30]
+        features = [person_index_age, index_admission_length, person_gender, admission_rate, person_ethnicity, person_marital_status, readmit_30]
         return features 
 
-def export_to_csv(df, name):
-    path = '{0}/{1}.csv'.format(export_dir, name)
-    df.to_csv(path, sep='\t', encoding='utf-8')
 
 '''
 pseudo controller section
 '''
 
-df_columns = ["person_index_age","index_admission_length","person_gender", "admission_rate", "readmit_30"]
+df_columns = ["person_index_age","index_admission_length","person_gender", "admission_rate", "person_ethnicity", "person_marital_status", "readmit_30"]
 empty_col = [0 for x in df_columns]
 np_data = np.array(empty_col)
-persons = create_test_batch(2000)
+persons = create_test_batch(500)
 
 for person in persons: 
     features = apply_extractors(person)
@@ -173,28 +204,29 @@ for person in persons:
 
 df = pd.DataFrame(data=np_data[1:,:], columns=df_columns) 
 
-# hacky force to int in pandas 
-# df.person_id = df.person_id.astype(int)
 df.person_index_age = df.person_index_age.astype(int)
 df.person_gender = df.person_gender.astype(int)
 df.readmit_30 = df.readmit_30.astype(int)
 
-# export out to exports dfrom sklearn.metrics import accuracy_scoreir
-# export_to_csv(df, 'export_test')
 
 '''
-set up basic sklearn stuff
+sklearn setup
 '''
 sk_features = df.columns[:-1]
 X  = df[sk_features]
 y = df["readmit_30"]
 X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=0.35)
 
+# RandomForestClassifier
 clf_rf = RandomForestClassifier()
 clf_rf.fit(X_train, y_train)
 y_pred_rf = clf_rf.predict(X_test)
-
 acc_rf = accuracy_score(y_test, y_pred_rf)
-print(acc_rf)
+print('RFC accuracy: {}').format(acc_rf)
 
-
+# K nearest neighbors
+clf_knn = KNeighborsClassifier()
+clf_knn.fit(X_train, y_train)
+y_pred_knn = clf_knn.predict(X_test)
+acc_knn = accuracy_score(y_test, y_pred_knn)
+print("KNC accuracy: {}").format(acc_knn)
