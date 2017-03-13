@@ -3,9 +3,10 @@ import numpy as np
 import pandas as pd
 import random
 from sklearn import cross_validation
+from sklearn.model_selection import KFold
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_curve
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from mimic_package.connect.locations import features_dir, export_dir
@@ -145,12 +146,8 @@ def get_person_ethnicity(person):
     subrecords = person.visit_occurances
     ethnicities = set([sub.ethnicity for sub in subrecords])
     ethnicities = list(ethnicities)
-    if len(ethnicities) > 1: # if more than one ethnicity in records , picks one at random 
-        sub_records_shape = np.shape(subrecords)
-        sample = np.random.choice(sub_records_shape)
-        ethnicity =  ethnicities[sample -1]
-    else: 
-        ethnicity = ethnicities[0]
+ 
+    ethnicity = ethnicities[0] # even if there are multiples, pick the first. Randomize this later
     
     if ethnicity_dict[ethnicity]:
         return ethnicity_values[ethnicity_dict[ethnicity]]
@@ -215,18 +212,38 @@ sklearn setup
 sk_features = df.columns[:-1]
 X  = df[sk_features]
 y = df["readmit_30"]
-X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=0.35)
 
-# RandomForestClassifier
+# using train_test_split
+X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=0.35)
+ 
+RandomForestClassifier
 clf_rf = RandomForestClassifier()
 clf_rf.fit(X_train, y_train)
 y_pred_rf = clf_rf.predict(X_test)
 acc_rf = accuracy_score(y_test, y_pred_rf)
 print('RFC accuracy: {}').format(acc_rf)
-
+# 
 # K nearest neighbors
 clf_knn = KNeighborsClassifier()
 clf_knn.fit(X_train, y_train)
 y_pred_knn = clf_knn.predict(X_test)
 acc_knn = accuracy_score(y_test, y_pred_knn)
 print("KNC accuracy: {}").format(acc_knn)
+
+# Run classifier with cross-validation 
+kf = KFold(n_splits=10) # not clear on how to tune this / starting with 10 as that was commonly seen in SO 
+kf.get_n_splits(X)
+for train, test in kf.split(X):
+    clf_rf = RandomForestClassifier()
+    clf_rf.fit(X.loc[train], y.loc[train])
+    clf_pred = clf_rf.predict(X.loc[test])
+    acc = accuracy_score(y[test], clf_pred)
+    print(acc)
+    # what to do here? seems like we'd want some average of these as a final metric
+    
+
+    
+    
+
+
+
