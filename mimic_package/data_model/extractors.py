@@ -2,11 +2,13 @@ import os
 import numpy as np
 import pandas as pd
 import random
+import matplotlib.pyplot as plt
 from sklearn import cross_validation
 from sklearn.model_selection import KFold
+from sklearn import preprocessing
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score, roc_curve
+from sklearn.metrics import accuracy_score, roc_curve, auc
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from mimic_package.connect.locations import features_dir, export_dir
@@ -191,7 +193,7 @@ pseudo controller section
 df_columns = ["person_index_age","index_admission_length","person_gender", "admission_rate", "person_ethnicity", "person_marital_status", "readmit_30"]
 empty_col = [0 for x in df_columns]
 np_data = np.array(empty_col)
-persons = create_test_batch(500)
+persons = create_test_batch(5000)
 
 for person in persons: 
     features = apply_extractors(person)
@@ -213,37 +215,49 @@ sk_features = df.columns[:-1]
 X  = df[sk_features]
 y = df["readmit_30"]
 
-# using train_test_split
-X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=0.35)
+# using train_test_split / no cross validation
+# X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=0.35)
  
-RandomForestClassifier
-clf_rf = RandomForestClassifier()
-clf_rf.fit(X_train, y_train)
-y_pred_rf = clf_rf.predict(X_test)
-acc_rf = accuracy_score(y_test, y_pred_rf)
-print('RFC accuracy: {}').format(acc_rf)
-# 
-# K nearest neighbors
-clf_knn = KNeighborsClassifier()
-clf_knn.fit(X_train, y_train)
-y_pred_knn = clf_knn.predict(X_test)
-acc_knn = accuracy_score(y_test, y_pred_knn)
-print("KNC accuracy: {}").format(acc_knn)
+# RandomForestClassifier
+# clf_rf = RandomForestClassifier()
+# clf_rf.fit(X_train, y_train)
+# y_pred_rf = clf_rf.predict(X_test)
+# acc_rf = accuracy_score(y_test, y_pred_rf)
+# print('RFC accuracy: {}').format(acc_rf)
+# # 
+# # K nearest neighbors
+# clf_knn = KNeighborsClassifier()
+# clf_knn.fit(X_train, y_train)
+# y_pred_knn = clf_knn.predict(X_test)
+# acc_knn = accuracy_score(y_test, y_pred_knn)
+# print("KNC accuracy: {}").format(acc_knn)
 
 # Run classifier with cross-validation 
-kf = KFold(n_splits=10) # not clear on how to tune this / starting with 10 as that was commonly seen in SO 
+
+kf = KFold(n_splits=10) # look into tuning n_splits
 kf.get_n_splits(X)
+kf_acc = []
 for train, test in kf.split(X):
     clf_rf = RandomForestClassifier()
     clf_rf.fit(X.loc[train], y.loc[train])
     clf_pred = clf_rf.predict(X.loc[test])
+    fpr, tpr, thresholds =roc_curve(y[test], clf_pred)
+    print(fpr, tpr)
     acc = accuracy_score(y[test], clf_pred)
+    print("accuracy")
     print(acc)
-    # what to do here? seems like we'd want some average of these as a final metric
     
+    kf_acc.append(acc)
+ 
+kf_acc = np.mean(kf_acc)
+print(kf_acc)
+
+# show the plots - currently broke
+plt.figure(figsize=(5, 5))
+plt.plot(fpr, tpr, 'b')
+plt.plot([0, 1], [0, 1],'r--')
+plt.show()
 
     
     
-
-
 
