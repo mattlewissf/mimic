@@ -1,5 +1,5 @@
 import re
-
+import collections
 
 '''
 Based these buckets off of this paper: http://www.aaai.org/ocs/index.php/WS/AAAIW16/paper/view/12669
@@ -7,7 +7,7 @@ Based these buckets off of this paper: http://www.aaai.org/ocs/index.php/WS/AAAI
 ethnicity_dict = {
                 'HISPANIC/LATINO - CUBAN': 'latino', 
                 'HISPANIC/LATINO - MEXICAN': 'latino',
-                'UNKNOWN/NOT SPECIFIED': 'other',
+                'UNKNOWN/NOT SPECIFIED': 'race_other',
                 'BLACK/HAITIAN': 'black',
                 'BLACK/AFRICAN AMERICAN': 'black',
                 'HISPANIC/LATINO - DOMINICAN': 'latino',
@@ -18,12 +18,12 @@ ethnicity_dict = {
                 'MIDDLE EASTERN': 'middle_eastern',
                 'ASIAN - JAPANESE':    'asian',
                 'ASIAN': 'asian',
-                'PATIENT DECLINED TO ANSWER': 'other',
+                'PATIENT DECLINED TO ANSWER': 'race_other',
                 'AMERICAN INDIAN/ALASKA NATIVE FEDERALLY RECOGNIZED TRIBE': 'american_indian',
                 'ASIAN - VIETNAMESE': 'asian',
                 'ASIAN - KOREAN': 'asian',
                 'BLACK/CAPE VERDEAN': 'black',
-                'OTHER': 'other',
+                'OTHER': 'race_other',
                 'ASIAN - FILIPINO': 'asian',
                 'WHITE - EASTERN EUROPEAN':    'white',
                 'ASIAN - ASIAN INDIAN': 'asian',
@@ -36,7 +36,7 @@ ethnicity_dict = {
                 'WHITE': 'white',
                 'HISPANIC/LATINO - HONDURAN': 'latino',
                 'SOUTH AMERICAN': 'latino',
-                'UNABLE TO OBTAIN': 'other',
+                'UNABLE TO OBTAIN': 'race_other',
                 'ASIAN - CAMBODIAN': 'asian',
                 'ASIAN - THAI': 'asian',
                 'HISPANIC/LATINO - PUERTO RICAN': 'latino',
@@ -48,30 +48,69 @@ ethnicity_dict = {
                 'NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER': 'pacific_islander'
                 }
 
-ethnicity_values = {'other': 0, 
-                    'white': 1, 
-                    'black': 2, 
-                    'latino': 3, 
-                    'asian': 4, 
-                    'multi_racial': 5, 
-                    'middle_eastern': 6,
-                    'pacific_islander': 7, 
-                    'american_indian': 8 }
+
+
+
+ethnicity_values_tup = (('race_other', 0), 
+                    ('white', 0), 
+                    ('black', 0), 
+                    ('latino', 0), 
+                    ('asian', 0), 
+                    ('multi_racial', 0), 
+                    ('middle_eastern', 0),
+                    ('pacific_islander', 0), 
+                    ('american_indian', 0))
+
+ethnicity_values = collections.OrderedDict(ethnicity_values_tup)
+
+# ethnicity_values = {'race_other': 0, 
+#                     'white': 1, 
+#                     'black': 2, 
+#                     'latino': 3, 
+#                     'asian': 4, 
+#                     'multi_racial': 5, 
+#                     'middle_eastern': 6,
+#                     'pacific_islander': 7, 
+#                     'american_indian': 8 }
 
 '''
-Guide: Unknown 0, Married 1, Single 2, Divorced / Separated  Widowed 3
+- unknown
+- single 
+- married / cohab
+- separated / divorced / widowed
 '''
 
 
 marital_status_dict = {
-                        'SEPARATED': 3, 
-                        'MARRIED': 1, 
-                        'DIVORCED': 3, 
-                        'UNKNOWN (DEFAULT)': 0, 
-                        'SINGLE': 2, 
-                        'WIDOWED': 3, 
-                        'LIFE PARTNER': 1
+                        'SEPARATED': 'separated', 
+                        'MARRIED': 'cohab', 
+                        'DIVORCED': 'separated', 
+                        'UNKNOWN (DEFAULT)': 'unknown', 
+                        'SINGLE': 'single', 
+                        'WIDOWED': 'separated', 
+                        'LIFE PARTNER': 'cohab'
                         }
+
+marital_values_tup =    (
+                    ('unknown', 0), 
+                    ('single', 0),
+                    ('cohab', 0), 
+                    ('separated', 0))
+
+
+marital_values = collections.OrderedDict(marital_values_tup)
+    
+
+
+# marital_status_dict = {
+#                         'SEPARATED': 3, 
+#                         'MARRIED': 1, 
+#                         'DIVORCED': 3, 
+#                         'UNKNOWN (DEFAULT)': 0, 
+#                         'SINGLE': 2, 
+#                         'WIDOWED': 3, 
+#                         'LIFE PARTNER': 1
+#                         }
                         
 
 '''
