@@ -73,7 +73,7 @@ class Patient(ChartObj):
         return_occurances = [] 
         for visit_occurance in visit_occurances:
             return_occurances.append(OMOPVisitOccurance(
-                                visit_occurance_id=visit_occurance.row_id, 
+                                visit_occurance_id=visit_occurance.hadm_id, 
                                 person_id=self.subject_id, 
                                 visit_start_date=visit_occurance.admittime, 
                                 visit_end_date = visit_occurance.dischtime, 
@@ -137,7 +137,7 @@ class Patient(ChartObj):
             return_conditions.append(OMOPConditionOccurance(condition_occurance_id = condition.row_id , 
                                       person_id = self.subject_id, 
                                       admission_id = condition.hadm_id,
-                                      icd9_code = None, 
+                                      icd9_code = condition.icd9_code, 
                                       icd9_title = None))
         return return_conditions
             

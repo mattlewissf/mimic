@@ -1,5 +1,6 @@
 import re
 import collections
+import itertools
 
 '''
 Based these buckets off of this paper: http://www.aaai.org/ocs/index.php/WS/AAAIW16/paper/view/12669
@@ -116,119 +117,92 @@ marital_values = collections.OrderedDict(marital_values_tup)
 '''
 Charleston comorbidity dicts
 Based off of http://czresearch.com/dropbox/Quan_MedCare_2005v43p1130.pdf
+# note that as of MIMIC III 1.0 there are only ICD9 codes... 
 '''
 
-charleston_icd10_coding = {
-                            'myocardial infarction':                    ['I21.x', 'I22.x', 'I25.2'],
-                            'congestive heart failure':                 ['I09.9', 'I11.0', 'I13.0', 'I13.2', 'I25.5', 'I42.0', 'I42.5-I42.9', 'I43.x', 'I50.x', 'P29.0'],
-                            'cardiac arrhythmias':                      ['I44.1-I44.3', 'I45.6', 'I45.9', 'I47.x-I49.x', 'R00.0',
-                                                                         'R00.1', 'R00.8', 'T82.1', 'Z45.0', 'Z95.0'],
-                            'valvular disease':                         ['A52.0', 'I05.x-I08.x', 'I09.1', 'I09.8', 'I34.x-I39.x',
-                                                                        'Q23.0-Q23.3', 'Z95.2-Z95.4'],
-                            'pulmonary circulation disorders':          ['I26.x', 'I27.x', 'I28.0', 'I28.8', 'I28.9'],
-                            'peripheral vascular disorders':            ['I70.x', 'I71.x', 'I73.1', 'I73.8', 'I73.9', 
-                                                                        'I77.1', 'I79.0', 'I79.2', 'K55.1', 'K55.8',
-                                                                        'K55.9', 'Z95.8', 'Z95.9'],
-                            'hypertension, uncomplicated ':             ['I10.x'],
-                            'hypertension, complicated':                ['I11.x-I13.x', 'I15.x'],
-                            'paralysis':                                ['G04.1', 'G11.4', 'G80.1', 'G80.2', 'G81.x', 
-                                                                        'G82.x', 'G83.0-G83.4', 'G83.9'],
-                            'other neurological disorders':             ['G10.x-G13.x', 'G20.x-G22.x', 'G25.4', 'G25.5', 'G31.2', 
-                                                                        'G31.8', 'G31.9', 'G32.x', 'G35.x-G37.x', 'G40.x', 
-                                                                        'G41.x', 'G93.1', 'G93.4', 'R47.0', 'R56.x'],
-                            'chronic pulmonary disease':                ['I27.8', 'I27.9', 'J40.x-J47.x', 'J60.x-J67.x', 'J68.4',
-                                                                         'J70.1', 'J70.3'],
-#                              'diabetes, uncomplicated'
-#                              'diabetes, complicated'
-#                              'hypothyroidism'
-#                              'renal failure'
-#                              'liver disease'
-#                              'peptic ulcer disease excluding bleeding'
-#                              'aids/hiv'
-#                              'lymphoma'
-#                              'metastatic cancer'
-#                              'solid tumor without metastasis'
-#                              'rheumatoid arthritis/collagen vascular diseases'
-#                              'coagulopathy'
-#                              'obesity'
-#                             ' weight loss'
-#                              'fluid and electrolyte disorders'
-#                              'blood loss anemia'
-#                              'deficiency anemia'
-#                              'alcohol abuse'
-#                              'drug abuse'
-#                              'psychoses'
-#                              'depression'
+
+charleston_icd9_coding = {
+                            'congestive heart failure': ['398.91', '402.01', '402.11', '402.91', '404.01', 
+                                                         '404.03', '404.11', '404.13', '404.91', '404.93', 
+                                                         '425.4-425.9', '428.x'],
+                            'cardiac arrhythmias': ['426.0', '426.13', '426.7', '426.9', '426.10', 
+                                                    '426.12', '427.0-427.4', '427.6-427.9', '785.0', '996.01', 
+                                                    '996.04', 'V45.0', 'V53.3'],
+                            'valvular disease': ['093.2', '394.x-397.x', '424.x', '746.3-746.6', 'V42.2', 'V43.3'],
+                            'pulmonary circulation disorders': ['415.0', '415.1', '416.x', '417.0', '417.8', '417.9'],
+                            'peripheral vascular disorders': ['093.0', '437.3', '440.x', '441.x', '443.1-443.9', 
+                                                              '447.1', '557.1', '557.9', 'V43.4'],
+                            'hypertension, uncomplicated ': ['401.x'],
+                            'hypertension, complicated': ['402.x-405.x'],
+                            'paralysis': ['334.1', '342.x', '343.x', '344.0-344.6', '344.9'], 
+                            'other neurological disorders': ['331.9', '332.0', '332.1', '333.4', '333.5', '333.92', 
+                                                             '334.x-335.x', '336.2', '340.x', '341.x', '345.x', 
+                                                             '348.1', '348.3', '780.3', '784.3'],
+                            'chronic pulmonary disease': ['416.8', '416.9', '490.x-505.x', '506.4', '508.1', '508.8'],
+                            'diabetes, uncomplicated': ['250.0-250.3'],
+                            'diabetes, complicated': ['250.4-250.9'],
+                            'hypothyroidism': ['240.9', '243.x', '244.x', '246.1', '246.8'],
+                            'renal failure': ['403.01', '403.11', '403.91', '404.02',
+                                              '404.03', '404.12', '404.13', '404.92', '404.93', 
+                                              '585.x', '586.x', '588.0', 'V42.0', 'V45.1', 'V56.x'],
+                            'liver disease': ['070.22', '070.23', '070.32', '070.33', '070.44', '070.54', '070.6', 
+                                              '070.9', '456.0-456.2', '570.x', '571.x', '572.2-572.8', 
+                                              '573.3', '573.4', '573.8', '573.9',' V42.7'] ,
+                            'peptic ulcer disease excluding bleeding': ['531.7', '531.9', '532.7', '532.9', '533.7', 
+                                                                        '533.9', '534.7', '534.9'],
+                            'aids/hiv': ['042.x-044.x'], 
+                            'lymphoma': ['200.x-202.x', '203.0', '238.6'],
+                            'metastatic cancer': ['196.x-199.x'],
+                            'solid tumor without metastasis': ['140.x-172.x',' 174.x-195.x'],
+                            'rheumatoid arthritis/collagen vascular diseases': ['446.x', '701.0', '710.0-710.4',' 710.8', '710.9',
+                                                                                '711.2', '714.x', '719.3', '720.x', '725.x', '728.5',
+                                                                                '728.89', '729.30'],
+                            'coagulopathy': ['286.x', '287.1', '287.3-287.5'], 
+                            'obesity': ['278.0'],
+                            ' weight loss': ['260.x-263.x', '783.2', '799.4'], 
+                            'fluid and electrolyte disorders': ['253.6', '276.x'], 
+                            'blood loss anemia': ['280.0'],
+                            'deficiency anemia': ['280.1-280.9', '281.x'], 
+                            'alcohol abuse': ['265.2', '291.1-291.3', '291.5-291.9', '303.0', '303.9', '305.0', 
+                                              '357.5', '425.5', '535.3', '571.0-571.3', '980.x', 'V11.3'],
+                            'drug abuse': ['292.x', '304.x', '305.2-305.9', 'V65.42'],
+                            'psychoses': ['293.8', '295.x', '296.04', '296.14', '296.44', '296.54', '297.x', '298.x'],
+                            'depression': ['296.2', '296.3', '296.5', '300.4', '309.x', '311']
     } 
 
-# charleston_icd9_coding = {
-#                             'congestive heart failure'
-#                             'cardiac arrhythmias'
-#                             'valvular disease'
-#                             'pulmonary circulation disorders'
-#                             'peripheral vascular disorders'
-#                             'hypertension, uncomplicated '
-#                             'hypertension, complicated'
-#                             'paralysis'
-#                             'other neurological disorders'
-#                             'chronic pulmonary disease'
-#                             'diabetes, uncomplicated'
-#                             'diabetes, complicated'
-#                             'hypothyroidism'
-#                             'renal failure'
-#                             'liver disease'
-#                             'peptic ulcer disease excluding bleeding'
-#                             'aids/hiv'
-#                             'lymphoma'
-#                             'metastatic cancer'
-#                             'solid tumor without metastasis'
-#                             'rheumatoid arthritis/collagen vascular diseases'
-#                             'coagulopathy'
-#                             'obesity'
-#                            ' weight loss'
-#                             'fluid and electrolyte disorders'
-#                             'blood loss anemia'
-#                             'deficiency anemia'
-#                             'alcohol abuse'
-#                             'drug abuse'
-#                             'psychoses'
-#                             'depression'
-#     } 
-
-# charleston_values = {
-#                             'myocardial infarction': 1, 
-#                             'congestive heart failure': 1, 
-#                             'cardiac arrhythmias': 1,
-#                             'valvular disease': 1, 
-#                             'pulmonary circulation disorders': 1, 
-#                             'peripheral vascular disorders': 2, 
-#                             'hypertension, uncomplicated '
-#                             'hypertension, complicated'
-#                             'paralysis'
-#                             'other neurological disorders'
-#                             'chronic pulmonary disease'
-#                             'diabetes, uncomplicated'
-#                             'diabetes, complicated'
-#                             'hypothyroidism'
-#                             'renal failure'
-#                             'liver disease'
-#                             'peptic ulcer disease excluding bleeding'
-#                             'aids/hiv'
-#                             'lymphoma'
-#                             'metastatic cancer': 6, 
-#                             'solid tumor without metastasis'
-#                             'rheumatoid arthritis/collagen vascular diseases'
-#                             'coagulopathy'
-#                             'obesity'
-#                            ' weight loss'
-#                             'fluid and electrolyte disorders'
-#                             'blood loss anemia'
-#                             'deficiency anemia'
-#                             'alcohol abuse'
-#                             'drug abuse'
-#                             'psychoses'
-#                             'depression'
-#     } 
+charleston_values = {
+                            'congestive heart failure': 0, 
+                            'cardiac arrhythmias': 0, 
+                            'valvular disease': 0, 
+                            'pulmonary circulation disorders': 0, 
+                            'peripheral vascular disorders': 0, 
+                            'hypertension, uncomplicated ': 0, 
+                            'hypertension, complicated': 0, 
+                            'paralysis': 0, 
+                            'other neurological disorders': 0, 
+                            'chronic pulmonary disease': 0, 
+                            'diabetes, uncomplicated': 0, 
+                            'diabetes, complicated': 0, 
+                            'hypothyroidism': 0, 
+                            'renal failure': 0, 
+                            'liver disease': 0,
+                            'peptic ulcer disease excluding bleeding': 0, 
+                            'aids/hiv': 0, 
+                            'lymphoma': 0, 
+                            'metastatic cancer': 0, 
+                            'solid tumor without metastasis': 0, 
+                            'rheumatoid arthritis/collagen vascular diseases': 0, 
+                            'coagulopathy': 0, 
+                            'obesity': 0, 
+                           ' weight loss': 0, 
+                            'fluid and electrolyte disorders': 0, 
+                            'blood loss anemia': 0, 
+                            'deficiency anemia': 0, 
+                            'alcohol abuse': 0, 
+                            'drug abuse': 0, 
+                            'psychoses': 0, 
+                            'depression': 0
+    } 
 
 
 '''
@@ -246,7 +220,6 @@ def fill_until(code):
         code_stop = int(code_stop) + 1
     elif len(code_stop) == 1:
         code_stop = (int(code_stop) * 10) + 1 
-    
     for x in range(code_stop):
         x = str(int_code) + '.' + str(x).zfill(2)
         codes.append(x)
@@ -297,15 +270,24 @@ def parse_icd_code(code):
         codes.add(prefix+s_code)
     return codes
 
-def check_whatever(codes_dict, user_codes=None): # won't be none
-    counter = 0
-    for key, value in codes_dict: 
-        # create set for that 
-        # if any in user codes in that
-        # take value from charleston dict of values 
-        # add that value to some counter? 
-        pass
-        
+def check_against_charleston(user_codes, codes_dict=charleston_icd9_coding): # won't be none
+    
+    charleston_features = charleston_values.copy()
+    # create expanded sets as new dict
+    expanded_codes = {} 
+    for key, value in codes_dict.iteritems(): 
+        code_set = set()
+        for code in value: 
+            s = parse_icd_code(code)
+            code_set.update(s)
+        expanded_codes[key] = code_set
+    
+    for code in user_codes: 
+        for key, value in expanded_codes.iteritems(): 
+            if code in value: 
+                charleston_features[key] = 1
+    
+    return charleston_features
 
 
 if __name__ == '__main__':
