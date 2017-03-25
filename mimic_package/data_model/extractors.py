@@ -10,6 +10,7 @@ from sklearn import preprocessing
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import accuracy_score, roc_curve, auc
 from datetime import datetime, timedelta
@@ -261,7 +262,9 @@ df_columns.append("readmit_30")
 empty_col = [0 for x in df_columns]
 np_data = np.array(empty_col)
 
-# persons = create_test_batch(5000)
+# persons = create_test_batch(20000)
+
+
 # # pickling save 
 # persons_pickle = open('persons_pickle','wb') 
 # pickle.dump(persons, persons_pickle)
@@ -271,13 +274,13 @@ np_data = np.array(empty_col)
 # persons = pickle.load(persons_pickle)
 # 
 #  
-# # applying extractors  
+# applying extractors  
 # for person in persons: 
 #     features = apply_extractors(person)
 #     if features: 
 #         np_data = np.vstack((np_data, features))
 #         print(features)
-#   
+#    
 # df = pd.DataFrame(data=np_data[1:,:], columns=df_columns)
 # df.person_index_age = df.person_index_age.astype(int)
 # df.person_gender = df.person_gender.astype(int)
@@ -292,25 +295,20 @@ df = pd.read_pickle('temp.pkl') # read saved data
 sk_features = df.columns[1:-1]
 X  = df[sk_features]
 y = df["readmit_30"]
+df_ = df.copy()
+df_out = df_.drop(sk_features, axis=1)
 
 '''
 Different classifiers to run through and compare. 
 None of these are optimized for this at all
 '''
 classifiers = [
-                ['rfc', RandomForestClassifier()],
-                ['kn', KNeighborsClassifier()], 
-                ['dtc', DecisionTreeClassifier(max_depth=5)]
+#                 ['rfc', RandomForestClassifier()],
+#                 ['kn', KNeighborsClassifier()], 
+                ['dtc', DecisionTreeClassifier(max_depth=5)],
+                ['lgr', LogisticRegression()], 
+                ['lgr_cv', LogisticRegressionCV()]              
     ]
-
-
-
-df_ = df.copy()
-df_out = df_.drop(sk_features, axis=1)
-# df_out['classifier'] = np.nan
-# df_out['prob'] = np.nan
-# df_out['auc'] = np.nan
-
 
 for name, clf in classifiers:
     print clf
@@ -330,7 +328,6 @@ for name, clf in classifiers:
         clf.fit(X.loc[train], y.loc[train])
         prob = clf.predict_proba(X.loc[test])
         fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
-        # don't get it 
         mean_tpr += interp(mean_fpr, fpr, tpr)
         mean_tpr[0] = 0.0
         roc_auc = auc(fpr, tpr)
@@ -339,20 +336,17 @@ for name, clf in classifiers:
         df_out.loc[test, 'auc_{}'.format(name)] = roc_auc
         df_out.loc[test, 'classifier_{}'.format(name)] = name
 
-    # don't understand 
     mean_tpr /= kf.get_n_splits(X,y)
     mean_tpr[-1] = 1.0
     mean_auc = auc(mean_fpr, mean_tpr)
     for plot in plots: 
         plt.plot(plot[0], plot[1], color='b')
     plt.plot(mean_fpr, mean_tpr, color ='r')
-    plt.xlabel('mean auc = {}'.format(mean_auc))
+    plt.xlabel('{0}  -- mean auc = {1}'.format(name, mean_auc))
     plt.show()
     print('plots')
     
     
-
-print('weeee')
 print(df_out)
 
 
