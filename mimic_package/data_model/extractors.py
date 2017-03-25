@@ -7,8 +7,10 @@ import matplotlib.pyplot as plt
 from sklearn import cross_validation
 from sklearn.model_selection import KFold
 from sklearn import preprocessing
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import accuracy_score, roc_curve, auc
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -18,9 +20,12 @@ from mimic_package.connect.connect import connection_string
 from mimic_package.data_model.configs import create_sqa_reader_config
 from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_values, marital_status_dict,\
     marital_values, check_against_charleston, charleston_values
-from pandas.core.algorithms import isin
-from sqlalchemy.util.langhelpers import NoneType
-from types import NoneType
+import pickle
+
+from pandas.core.algorithms import isin # what is this? 
+from sqlalchemy.util.langhelpers import NoneType # what is this
+from types import NoneType # what is this
+from numpy.core.multiarray import interp
 
 
 reader_config = create_sqa_reader_config(connection_string, limit_per=10000, n_tries=10)
@@ -179,7 +184,6 @@ def get_person_icd_codes(person, period=365): # hacky one year look back\
                     code = '{0}.{1}'.format(raw_code[:3], raw_code[3:])
                 elif raw_code[0].isalpha(): 
                     code = '{0}.{1}'.format(raw_code[:3], raw_code[3:])
-            
                 else: 
                     return []             
                 
@@ -206,8 +210,6 @@ def get_person_ethnicity(person):
     else: 
         return ethnicity_features
 
-    
-
 def get_person_marital(person):
     '''
     Marital status noted in some Admissions (not Patient). See definitions file
@@ -219,7 +221,6 @@ def get_person_marital(person):
         return marital_features
     else: 
         return marital_features
-
 
 def apply_extractors(person):
         assign_index_record(person)
@@ -251,98 +252,108 @@ def apply_extractors(person):
 '''
 pseudo controller section
 '''
-
-
-
+# setting up the dataframe details
 df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate"]
 [df_columns.append(feature) for feature in ethnicity_values.keys()]
 [df_columns.append(feature) for feature in marital_values.keys()]
 [df_columns.append(feature) for feature in charleston_values.keys()]
-df_columns.append("readmit_30")
- 
+df_columns.append("readmit_30") 
 empty_col = [0 for x in df_columns]
 np_data = np.array(empty_col)
-persons = create_test_batch(600)
 
- 
-for person in persons: 
-    features = apply_extractors(person)
-    if features: 
-        np_data = np.vstack((np_data, features))
-        print(features)
- 
-df = pd.DataFrame(data=np_data[1:,:], columns=df_columns) 
+# persons = create_test_batch(5000)
+# # pickling save 
+# persons_pickle = open('persons_pickle','wb') 
+# pickle.dump(persons, persons_pickle)
+# persons_pickle.close()
+# # pickling open 
+# persons_pickle = open('persons_pickle', 'r')
+# persons = pickle.load(persons_pickle)
+# 
+#  
+# # applying extractors  
+# for person in persons: 
+#     features = apply_extractors(person)
+#     if features: 
+#         np_data = np.vstack((np_data, features))
+#         print(features)
+#   
+# df = pd.DataFrame(data=np_data[1:,:], columns=df_columns)
+# df.person_index_age = df.person_index_age.astype(int)
+# df.person_gender = df.person_gender.astype(int)
+# df.person_id = df.person_id.astype(int)
 
 
-df.to_pickle('temp.pkl') # saves data 
-# df = pd.read_pickle('temp.pkl') # read saved data
+# Pickling 
+# df.to_pickle('temp.pkl') # saves data 
+df = pd.read_pickle('temp.pkl') # read saved data
 
-df.person_index_age = df.person_index_age.astype(int)
-df.person_gender = df.person_gender.astype(int)
-df.person_id = df.person_id.astype(int)
-
-# df[5:] = df[5:].astype(int)
-
-
-'''
-sklearn setup
-'''
+# setting up test / train 
 sk_features = df.columns[1:-1]
 X  = df[sk_features]
 y = df["readmit_30"]
 
-# using train_ty[test]est_split / no cross validation
-# X_train, X_test, y_train, y_test = cross_validation.train_test_split(X, y, test_size=0.35)
- 
-# RandomForestClassifier
-# clf_rf = RandomForestClassifier()
-# clf_rf.fit(X_train, y_train)look into tuning n_splits
-# y_pred_rf = clf_rf.predict(X_test)
-# acc_rf = accuracy_score(y_test, y_pred_rf)
-# print('RFC accuracy: {}').format(acc_rf)
-# # 
-# # K nearest neighbors
-# clf_knn = KNeighborsClassifier()
-# clf_knn.fit(X_train, y_train)
-# y_pred_knn = clf_knn.predict(X_test)
-# acc_knn = accuracy_score(y_test, y_pred_knn)
-# print("KNC accuracy: {}").format(acc_knn)
+'''
+Different classifiers to run through and compare. 
+None of these are optimized for this at all
+'''
+classifiers = [
+                ['rfc', RandomForestClassifier()],
+                ['kn', KNeighborsClassifier()], 
+                ['dtc', DecisionTreeClassifier(max_depth=5)]
+    ]
 
 
-# Run classifier with cross-validation 
 
 df_ = df.copy()
 df_out = df_.drop(sk_features, axis=1)
-df_out['prob'] = np.nan
-df_out['auc'] = np.nan
+# df_out['classifier'] = np.nan
+# df_out['prob'] = np.nan
+# df_out['auc'] = np.nan
 
-kf = KFold(n_splits=10) # bring back to 10
-kf.get_n_splits(X)
-roc_collector = [] # not sure this is the best way to do this
-for train, test in kf.split(X):
-    clf_rf = RandomForestClassifier()
-    clf_rf.fit(X.loc[train], y.loc[train])
-    clf_pred = clf_rf.predict(X.loc[test])
-    clf_prob = clf_rf.predict_proba(X.loc[test])
-    prob = clf_prob[:,1]
-    fpr, tpr, thresholds = roc_curve(y[test], prob)
-    roc_auc = auc(fpr, tpr)
-    # write to output df
-    df_out.loc[test, 'prob'] = prob
-    df_out.loc[test, 'auc'] = roc_auc
+
+for name, clf in classifiers:
+    print clf
+    df_out['classifier_{}'.format(name)] = np.nan
+    df_out['prob_{}'.format(name)] = np.nan
+    df_out['auc_{}'.format(name)] = np.nan
+    
+    plots = [] # remove later
+    kf = KFold(n_splits=10) # bring back to 10
+    kf.get_n_splits(X)
+    
+    # taken from SK learn example without real understanding
+    mean_tpr = 0.0
+    mean_fpr = np.linspace(0, 1, 100)
+    
+    for train, test in kf.split(X):
+        clf.fit(X.loc[train], y.loc[train])
+        prob = clf.predict_proba(X.loc[test])
+        fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
+        # don't get it 
+        mean_tpr += interp(mean_fpr, fpr, tpr)
+        mean_tpr[0] = 0.0
+        roc_auc = auc(fpr, tpr)
+        plots.append([fpr, tpr])
+        df_out.loc[test, 'prob_{}'.format(name)] = prob[:,1]
+        df_out.loc[test, 'auc_{}'.format(name)] = roc_auc
+        df_out.loc[test, 'classifier_{}'.format(name)] = name
+
+    # don't understand 
+    mean_tpr /= kf.get_n_splits(X,y)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    for plot in plots: 
+        plt.plot(plot[0], plot[1], color='b')
+    plt.plot(mean_fpr, mean_tpr, color ='r')
+    plt.xlabel('mean auc = {}'.format(mean_auc))
+    plt.show()
+    print('plots')
+    
     
 
 print('weeee')
 print(df_out)
 
 
-
-# show the plots - currently broke
-# plt.figure(figsize=(5, 5))
-# plt.plot(fpr, tpr, 'b')
-# plt.plot([0, 1], [0, 1],'r--')
-# plt.show()
-
-    
-    
 
