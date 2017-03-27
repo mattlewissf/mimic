@@ -248,48 +248,90 @@ def apply_extractors(person):
         [features.append(feature) for feature in charleston_features.values()]
         features.append(readmit_30) # just keeping this on the end
         return features 
+    
+def extract_to_dataframe():
+    persons = create_test_batch(20)
+    
+    df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate"]
+    [df_columns.append(feature) for feature in ethnicity_values.keys()]
+    [df_columns.append(feature) for feature in marital_values.keys()]
+    [df_columns.append(feature) for feature in charleston_values.keys()]
+    df_columns.append("readmit_30") 
+    empty_col = [0 for x in df_columns]
+    np_data = np.array(empty_col)
+    
+    for person in persons: 
+        features = apply_extractors(person)
+        if features: 
+            np_data = np.vstack((np_data, features))
+            print(features)
+        
+    df = pd.DataFrame(data=np_data[1:,:], columns=df_columns)
+    df.person_index_age = df.person_index_age.astype(int)
+    df.person_gender = df.person_gender.astype(int)
+    df.person_id = df.person_id.astype(int)
+    return df
+    
+
+'''
+Trying to figure out a bootstrapping function
+'''
+
+def get_auc(df, clf):
+    kf = KFold(n_splits=10) # bring back to 10
+    kf.get_n_splits(X)
+
+    mean_tpr = 0.0
+    mean_fpr = np.linspace(0, 1, 100)
+
+    for train, test in kf.split(X):
+        clf.fit(X.loc[train], y.loc[train])
+        prob = clf.predict_proba(X.loc[test])
+        fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
+        mean_tpr += interp(mean_fpr, fpr, tpr)
+        mean_tpr[0] = 0.0
+        roc_auc = auc(fpr, tpr)
+
+    mean_tpr /= kf.get_n_splits(X,y)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    return mean_auc
+    
+
+    
+def bootstrap(X, n=None):
+    # needs to return a random (w/ replacement) df with len == len(data)
+    
+    df = X.copy()
+    df = df[0:0]
+    if n == None: 
+        n = len(X)
+    
+    # this is super slow; is there a better way? 
+    print('start')
+    resample_i = np.floor(np.random.rand(n)*len(X)).astype(int)
+    for i,x in enumerate(resample_i):
+        df.loc[i] = X.loc[x]
+        
+    print('boop')
+    return df
+
+def run_auc_bootstrapping(data, n=20, clf=DecisionTreeClassifier(max_depth=5)):
+    aucs = [] 
+    for _ in range(n):
+        boot = bootstrap(data)
+        aucs.append(get_auc(boot, clf))
+    
+    return aucs
+        
 
 
 '''
-pseudo controller section
+features to dataframe stuff
 '''
-# setting up the dataframe details
-df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate"]
-[df_columns.append(feature) for feature in ethnicity_values.keys()]
-[df_columns.append(feature) for feature in marital_values.keys()]
-[df_columns.append(feature) for feature in charleston_values.keys()]
-df_columns.append("readmit_30") 
-empty_col = [0 for x in df_columns]
-np_data = np.array(empty_col)
-
-# persons = create_test_batch(20000)
-
-
-# # pickling save 
-# persons_pickle = open('persons_pickle','wb') 
-# pickle.dump(persons, persons_pickle)
-# persons_pickle.close()
-# # pickling open 
-# persons_pickle = open('persons_pickle', 'r')
-# persons = pickle.load(persons_pickle)
-# 
-#  
-# applying extractors  
-# for person in persons: 
-#     features = apply_extractors(person)
-#     if features: 
-#         np_data = np.vstack((np_data, features))
-#         print(features)
-#    
-# df = pd.DataFrame(data=np_data[1:,:], columns=df_columns)
-# df.person_index_age = df.person_index_age.astype(int)
-# df.person_gender = df.person_gender.astype(int)
-# df.person_id = df.person_id.astype(int)
-
-
-# Pickling 
+# df = extract_to_dataframe() # extracts persons
 # df.to_pickle('temp.pkl') # saves data 
-df = pd.read_pickle('temp.pkl') # read saved data
+df = pd.read_pickle('temp.pkl') # reads saved data
 
 # setting up test / train 
 sk_features = df.columns[1:-1]
@@ -298,56 +340,56 @@ y = df["readmit_30"]
 df_ = df.copy()
 df_out = df_.drop(sk_features, axis=1)
 
+
+m = run_auc_bootstrapping(df)
+print('beep')
+
+
 '''
 Different classifiers to run through and compare. 
 None of these are optimized for this at all
 '''
-classifiers = [
-#                 ['rfc', RandomForestClassifier()],
-#                 ['kn', KNeighborsClassifier()], 
-                ['dtc', DecisionTreeClassifier(max_depth=5)],
-                ['lgr', LogisticRegression()], 
-                ['lgr_cv', LogisticRegressionCV()]              
-    ]
 
-for name, clf in classifiers:
-    print clf
-    df_out['classifier_{}'.format(name)] = np.nan
-    df_out['prob_{}'.format(name)] = np.nan
-    df_out['auc_{}'.format(name)] = np.nan
+def plot_aucs():
+    classifiers = [
+    #                 ['rfc', RandomForestClassifier()],
+    #                 ['kn', KNeighborsClassifier()], 
+                    ['dtc', DecisionTreeClassifier(max_depth=5)],
+                    ['lgr', LogisticRegression()], 
+                    ['lgr_cv', LogisticRegressionCV()]              
+        ]
     
-    plots = [] # remove later
-    kf = KFold(n_splits=10) # bring back to 10
-    kf.get_n_splits(X)
+    for name, clf in classifiers:
+        print clf
+        plots = [] # remove later
+        kf = KFold(n_splits=10) # bring back to 10
+        kf.get_n_splits(X)
+        
+        # taken from SK learn example without real understanding
+        mean_tpr = 0.0
+        mean_fpr = np.linspace(0, 1, 100)
+        
+        for train, test in kf.split(X):
+            clf.fit(X.loc[train], y.loc[train])
+            prob = clf.predict_proba(X.loc[test])
+            fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
+            mean_tpr += interp(mean_fpr, fpr, tpr)
+            mean_tpr[0] = 0.0
+            roc_auc = auc(fpr, tpr)
+            plots.append([fpr, tpr])
+            df_out.loc[test, 'prob_{}'.format(name)] = prob[:,1]
+            df_out.loc[test, 'auc_{}'.format(name)] = roc_auc
+            df_out.loc[test, 'classifier_{}'.format(name)] = name
     
-    # taken from SK learn example without real understanding
-    mean_tpr = 0.0
-    mean_fpr = np.linspace(0, 1, 100)
+        mean_tpr /= kf.get_n_splits(X,y)
+        mean_tpr[-1] = 1.0
+        mean_auc = auc(mean_fpr, mean_tpr)
+        for plot in plots: 
+            plt.plot(plot[0], plot[1], color='b')
+        plt.plot(mean_fpr, mean_tpr, color ='r')
+        plt.xlabel('{0}  -- mean auc = {1}'.format(name, mean_auc))
+        plt.show()
+        print('plots')
     
-    for train, test in kf.split(X):
-        clf.fit(X.loc[train], y.loc[train])
-        prob = clf.predict_proba(X.loc[test])
-        fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
-        mean_tpr += interp(mean_fpr, fpr, tpr)
-        mean_tpr[0] = 0.0
-        roc_auc = auc(fpr, tpr)
-        plots.append([fpr, tpr])
-        df_out.loc[test, 'prob_{}'.format(name)] = prob[:,1]
-        df_out.loc[test, 'auc_{}'.format(name)] = roc_auc
-        df_out.loc[test, 'classifier_{}'.format(name)] = name
-
-    mean_tpr /= kf.get_n_splits(X,y)
-    mean_tpr[-1] = 1.0
-    mean_auc = auc(mean_fpr, mean_tpr)
-    for plot in plots: 
-        plt.plot(plot[0], plot[1], color='b')
-    plt.plot(mean_fpr, mean_tpr, color ='r')
-    plt.xlabel('{0}  -- mean auc = {1}'.format(name, mean_auc))
-    plt.show()
-    print('plots')
-    
-    
-print(df_out)
-
 
 
