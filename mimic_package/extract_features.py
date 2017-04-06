@@ -14,6 +14,6 @@ reader_config = create_sqa_reader_config(connection_string, limit_per=10000, n_t
 reader = Patient.reader(reader_config)
 
 for x in reader:
-    m = x.person
-    print(x.death)
+    if len(x.admissions) > 3:
+        print(x)
     

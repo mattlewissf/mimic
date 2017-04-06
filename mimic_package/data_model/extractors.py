@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from sklearn import cross_validation
 from sklearn.model_selection import KFold
 from sklearn import preprocessing
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
@@ -250,7 +250,7 @@ def apply_extractors(person):
         return features 
     
 def extract_to_dataframe():
-    persons = create_test_batch(20)
+    persons = create_test_batch(100)
     
     df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate"]
     [df_columns.append(feature) for feature in ethnicity_values.keys()]
@@ -300,38 +300,35 @@ def get_auc(df, clf):
 
     
 def bootstrap(X, n=None):
-    # needs to return a random (w/ replacement) df with len == len(data)
-    
     df = X.copy()
     df = df[0:0]
     if n == None: 
         n = len(X)
-    
-    # this is super slow; is there a better way? 
-    print('start')
+
     resample_i = np.floor(np.random.rand(n)*len(X)).astype(int)
-    for i,x in enumerate(resample_i):
-        df.loc[i] = X.loc[x]
-        
-    print('boop')
+    df = X.loc[resample_i]
     return df
 
-def run_auc_bootstrapping(data, n=20, clf=DecisionTreeClassifier(max_depth=5)):
+def run_auc_bootstrapping(data, n=1000, clf=DecisionTreeClassifier(max_depth=5)):
     aucs = [] 
     for _ in range(n):
         boot = bootstrap(data)
         aucs.append(get_auc(boot, clf))
     
     return aucs
+
+def get_percentile(data): # by defaut these
+    ninety_seventh = np.percentile(data, 97.5) 
+    two_half = np.percentile(data, 2.5)
         
 
 
 '''
 features to dataframe stuff
 '''
-# df = extract_to_dataframe() # extracts persons
+df = extract_to_dataframe() # extracts persons
 # df.to_pickle('temp.pkl') # saves data 
-df = pd.read_pickle('temp.pkl') # reads saved data
+# df = pd.read_pickle('temp.pkl') # reads saved data
 
 # setting up test / train 
 sk_features = df.columns[1:-1]
@@ -339,10 +336,6 @@ X  = df[sk_features]
 y = df["readmit_30"]
 df_ = df.copy()
 df_out = df_.drop(sk_features, axis=1)
-
-
-m = run_auc_bootstrapping(df)
-print('beep')
 
 
 '''
@@ -354,9 +347,12 @@ def plot_aucs():
     classifiers = [
     #                 ['rfc', RandomForestClassifier()],
     #                 ['kn', KNeighborsClassifier()], 
+                    ['abclf', AdaBoostClassifier()],
+                    ['gbclf', GradientBoostingClassifier()],     
                     ['dtc', DecisionTreeClassifier(max_depth=5)],
                     ['lgr', LogisticRegression()], 
-                    ['lgr_cv', LogisticRegressionCV()]              
+                    ['lgr_cv', LogisticRegressionCV()], 
+                        
         ]
     
     for name, clf in classifiers:
@@ -391,5 +387,6 @@ def plot_aucs():
         plt.show()
         print('plots')
     
+plot_aucs()
 
 
