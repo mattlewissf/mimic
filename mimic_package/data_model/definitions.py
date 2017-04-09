@@ -1,6 +1,8 @@
 import re
 import collections
 import itertools
+from ccs import icd9
+from ccs.icd9 import ICD9
 
 '''
 Based these buckets off of this paper: http://www.aaai.org/ocs/index.php/WS/AAAIW16/paper/view/12669
@@ -204,6 +206,9 @@ charleston_values = {
                             'depression': 0
     } 
 
+index_admission_mapper = {"EMERGENCY": 0, "URGENT":0, "ELECTIVE":0}
+index_admission_types = collections.OrderedDict(index_admission_mapper)
+
 
 '''
 ICD9 parsing functions
@@ -287,8 +292,28 @@ def check_against_charleston(user_codes, codes_dict=charleston_icd9_coding): # w
             if code in value: 
                 charleston_features[key] = 1
     
-    return charleston_features
+    return collections.OrderedDict(charleston_features)
 
+def check_against_ccs(user_codes, codeset, code_type='dx', code_level='single'):
+    
+    # this can't be the right way to do this... 
+    mapper = {'dx': {'single': codeset.dx_single_level_codes, 'category': codeset.dx_category_level_codes, 'multi': codeset.dx_multilevel_codes}, 
+              'px': {'single': codeset.px_single_level_codes, 'category': codeset.px_category_level_codes, 'multi': codeset.px_multilevel_codes}}
+    
+    f = mapper[code_type][code_level]
+    
+
+    ccs_features = {} 
+    user_set = set(user_codes)
+    for k,v in f.iteritems():
+        overlap = user_set & v
+        if overlap: 
+            print(overlap)
+            ccs_features[k] = 1
+        else:
+            ccs_features[k] = 0
+    
+    return collections.OrderedDict(ccs_features)
 
 if __name__ == '__main__':
     pass

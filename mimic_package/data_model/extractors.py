@@ -3,16 +3,6 @@ import numpy as np
 import pandas as pd
 import random
 import collections
-import matplotlib.pyplot as plt
-from sklearn import cross_validation
-from sklearn.model_selection import KFold
-from sklearn import preprocessing
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import accuracy_score, roc_curve, auc
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from mimic_package.connect.locations import features_dir, export_dir
@@ -20,22 +10,25 @@ from mimic_package.data_model.oreader_mapper import Patient
 from mimic_package.connect.connect import connection_string
 from mimic_package.data_model.configs import create_sqa_reader_config
 from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_values, marital_status_dict,\
-    marital_values, check_against_charleston, charleston_values
+    marital_values, check_against_charleston, charleston_values, check_against_ccs, index_admission_types
 import pickle
-
 from pandas.core.algorithms import isin # what is this? 
 from sqlalchemy.util.langhelpers import NoneType # what is this
 from types import NoneType # what is this
 from numpy.core.multiarray import interp
+from ccs.icd9 import ICD9
+from numpy.core.defchararray import index
 
 
+'''
+Reader config
+'''
 reader_config = create_sqa_reader_config(connection_string, limit_per=10000, n_tries=10)
 reader = Patient.reader(reader_config)
 
 """ 
 Extraction helper methods.
 """ 
-
 # create persons for a test batch 
 def create_test_batch(batch_size):
     persons = [] 
@@ -47,7 +40,10 @@ def create_test_batch(batch_size):
             print(counter)
         else:
             return persons
-
+        
+'''
+TODO: Create a person_id start, end batch import to
+'''
 
 def grab_specific_persons(*args):
     person_collector = [] 
@@ -70,7 +66,6 @@ def assign_index_record(person):
         sub_records_shape = np.shape(sub_records)[0]
         sub_records_sample = np.random.choice(sub_records_shape)
         index_record = sub_records[sub_records_sample]
-        # baby check - need to refactor somewhere smarter
         if index_record.admission_type == 'NEWBORN':
             pass
         person.index_admission = index_record
@@ -100,7 +95,7 @@ def get_person_index_age(person):
     person_dob = person.DOB
     person_age_at_index = index_record_date - person_dob
     person_age_at_index = format((person_age_at_index.total_seconds() / (365.25 * 86400)), '.2f') # convert to years 
-    
+    pass
     return float(person_age_at_index)
 
 def get_index_admission_length(person):
@@ -108,6 +103,14 @@ def get_index_admission_length(person):
     index_admission_length = index_admission.visit_end_date - index_admission.visit_start_date 
     index_admission_length = format((index_admission_length.total_seconds() / 86400), '.2f')  # convert to days 
     return float(index_admission_length)
+
+def get_index_admission_type(person):
+    # can be either urgent / emergency / elective
+    index_admission_type = person.index_admission.admission_type
+    admission_types = index_admission_types.copy() 
+    if index_admission_type in admission_types:
+        admission_types[index_admission_type] = 1
+    return admission_types
 
 def get_person_gender(person):
     person_gender = person.gender
@@ -140,14 +143,13 @@ def get_readmit_30(person):
                                  if admission.visit_start_date > person.index_admission.visit_end_date 
                                  and admission.visit_start_date < period_end]
     
-    # explicitly return 1 for re-admission, 0 for none 
     if len(admissions_within_30_days) > 0: 
         return 1
     else: 
         return 0
     
 
-def get_person_icd_codes(person, period=365): # hacky one year look back\
+def get_person_icd_codes(person, period=365):
         
     '''
     goes through conditions assigned to patient (and not to specific admission)
@@ -195,6 +197,10 @@ def apply_charleston_groupers(codes):
     charleston_features = check_against_charleston(codes)
     return charleston_features
 
+def apply_ccs_groups(codes, codeset):
+    ccs_features = check_against_ccs(codes, codeset)
+    return ccs_features
+
 def get_person_ethnicity(person):
     '''
     Ethnicity is noted in some Admissions (not Patient). See definitions file
@@ -223,48 +229,57 @@ def get_person_marital(person):
     else: 
         return marital_features
 
-def apply_extractors(person):
+def apply_extractors(person, codeset):
         assign_index_record(person)
         if person.index_admission == None: # leave out people with no index admission
             return None
         if person.index_admission.admission_type == 'NEWBORN':
             return None
-#         person_id = person.person_id # is this needed? using as an index? 
         person_index_age = get_person_index_age(person)
         if person_index_age > 120: 
             return None # this is a bug in DOB for ~10~ of patients
         person_id = person.person_id
         index_admission_length = get_index_admission_length(person)
+        # testing
+        index_admission_type_features = get_index_admission_type(person)
         person_gender = get_person_gender(person)
         ethnicity_features = get_person_ethnicity(person)
         marital_features = get_person_marital(person)
         admission_rate = get_admission_rate(person)
-        codes = get_person_icd_codes(person) # matching patient codes to charleston comorbid values
+        codes = get_person_icd_codes(person)
         charleston_features = apply_charleston_groupers(codes)
+        print(charleston_features) # testing ordering bug
+        ccs_features = apply_ccs_groups(codes, codeset)
         readmit_30 = get_readmit_30(person)
         features = [person_id, person_index_age, index_admission_length, person_gender, admission_rate]
+        [features.append(feature) for feature in index_admission_type_features.values()]
         [features.append(feature) for feature in ethnicity_features.values()]
         [features.append(feature) for feature in marital_features.values()]
         [features.append(feature) for feature in charleston_features.values()]
-        features.append(readmit_30) # just keeping this on the end
+        [features.append(feature) for feature in ccs_features.values()]
+        features.append(readmit_30) 
         return features 
     
-def extract_to_dataframe():
-    persons = create_test_batch(100)
+def extract_to_dataframe(persons):
+    # instantiating codeset for ccs just once here for speed - need to figure out more pythonic ways
+    codeset = ICD9()
+    print('using ICD9 codeset')
     
     df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate"]
+    [df_columns.append(feature) for feature in index_admission_types.keys()]
     [df_columns.append(feature) for feature in ethnicity_values.keys()]
     [df_columns.append(feature) for feature in marital_values.keys()]
     [df_columns.append(feature) for feature in charleston_values.keys()]
+    [df_columns.append(feature) for feature in sorted(codeset.dx_single_level_codes.keys())] # this is terrible 
     df_columns.append("readmit_30") 
     empty_col = [0 for x in df_columns]
     np_data = np.array(empty_col)
     
     for person in persons: 
-        features = apply_extractors(person)
+        features = apply_extractors(person, codeset) # added codeset
         if features: 
             np_data = np.vstack((np_data, features))
-            print(features)
+#             print(features)
         
     df = pd.DataFrame(data=np_data[1:,:], columns=df_columns)
     df.person_index_age = df.person_index_age.astype(int)
@@ -272,121 +287,10 @@ def extract_to_dataframe():
     df.person_id = df.person_id.astype(int)
     return df
     
-
 '''
-Trying to figure out a bootstrapping function
+Pseduo-controller
 '''
-
-def get_auc(df, clf):
-    kf = KFold(n_splits=10) # bring back to 10
-    kf.get_n_splits(X)
-
-    mean_tpr = 0.0
-    mean_fpr = np.linspace(0, 1, 100)
-
-    for train, test in kf.split(X):
-        clf.fit(X.loc[train], y.loc[train])
-        prob = clf.predict_proba(X.loc[test])
-        fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
-        mean_tpr += interp(mean_fpr, fpr, tpr)
-        mean_tpr[0] = 0.0
-        roc_auc = auc(fpr, tpr)
-
-    mean_tpr /= kf.get_n_splits(X,y)
-    mean_tpr[-1] = 1.0
-    mean_auc = auc(mean_fpr, mean_tpr)
-    return mean_auc
-    
-
-    
-def bootstrap(X, n=None):
-    df = X.copy()
-    df = df[0:0]
-    if n == None: 
-        n = len(X)
-
-    resample_i = np.floor(np.random.rand(n)*len(X)).astype(int)
-    df = X.loc[resample_i]
-    return df
-
-def run_auc_bootstrapping(data, n=1000, clf=DecisionTreeClassifier(max_depth=5)):
-    aucs = [] 
-    for _ in range(n):
-        boot = bootstrap(data)
-        aucs.append(get_auc(boot, clf))
-    
-    return aucs
-
-def get_percentile(data): # by defaut these
-    ninety_seventh = np.percentile(data, 97.5) 
-    two_half = np.percentile(data, 2.5)
-        
-
-
-'''
-features to dataframe stuff
-'''
+persons = create_test_batch(200)
 df = extract_to_dataframe() # extracts persons
-# df.to_pickle('temp.pkl') # saves data 
-# df = pd.read_pickle('temp.pkl') # reads saved data
-
-# setting up test / train 
-sk_features = df.columns[1:-1]
-X  = df[sk_features]
-y = df["readmit_30"]
-df_ = df.copy()
-df_out = df_.drop(sk_features, axis=1)
-
-
-'''
-Different classifiers to run through and compare. 
-None of these are optimized for this at all
-'''
-
-def plot_aucs():
-    classifiers = [
-    #                 ['rfc', RandomForestClassifier()],
-    #                 ['kn', KNeighborsClassifier()], 
-                    ['abclf', AdaBoostClassifier()],
-                    ['gbclf', GradientBoostingClassifier()],     
-                    ['dtc', DecisionTreeClassifier(max_depth=5)],
-                    ['lgr', LogisticRegression()], 
-                    ['lgr_cv', LogisticRegressionCV()], 
-                        
-        ]
-    
-    for name, clf in classifiers:
-        print clf
-        plots = [] # remove later
-        kf = KFold(n_splits=10) # bring back to 10
-        kf.get_n_splits(X)
-        
-        # taken from SK learn example without real understanding
-        mean_tpr = 0.0
-        mean_fpr = np.linspace(0, 1, 100)
-        
-        for train, test in kf.split(X):
-            clf.fit(X.loc[train], y.loc[train])
-            prob = clf.predict_proba(X.loc[test])
-            fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
-            mean_tpr += interp(mean_fpr, fpr, tpr)
-            mean_tpr[0] = 0.0
-            roc_auc = auc(fpr, tpr)
-            plots.append([fpr, tpr])
-            df_out.loc[test, 'prob_{}'.format(name)] = prob[:,1]
-            df_out.loc[test, 'auc_{}'.format(name)] = roc_auc
-            df_out.loc[test, 'classifier_{}'.format(name)] = name
-    
-        mean_tpr /= kf.get_n_splits(X,y)
-        mean_tpr[-1] = 1.0
-        mean_auc = auc(mean_fpr, mean_tpr)
-        for plot in plots: 
-            plt.plot(plot[0], plot[1], color='b')
-        plt.plot(mean_fpr, mean_tpr, color ='r')
-        plt.xlabel('{0}  -- mean auc = {1}'.format(name, mean_auc))
-        plt.show()
-        print('plots')
-    
-plot_aucs()
-
+df.to_pickle('46k.pkl') # saves data / change name
 
