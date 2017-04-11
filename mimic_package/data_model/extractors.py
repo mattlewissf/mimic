@@ -17,6 +17,7 @@ from sqlalchemy.util.langhelpers import NoneType # what is this
 from types import NoneType # what is this
 from numpy.core.multiarray import interp
 from ccs.icd9 import ICD9
+from ccs.base import parse_dx_code
 from numpy.core.defchararray import index
 
 
@@ -27,9 +28,8 @@ reader_config = create_sqa_reader_config(connection_string, limit_per=10000, n_t
 reader = Patient.reader(reader_config)
 
 """ 
-Extraction helper methods.
+Extraction helper functions.
 """ 
-# create persons for a test batch 
 def create_test_batch(batch_size):
     persons = [] 
     counter = 0 # refactor? 
@@ -44,8 +44,6 @@ def create_test_batch(batch_size):
 '''
 When trying to pull in all 46k patient records, I often fail to get all of the records
 '''
-            
-            
 def piecemeal_to_df():
     persons = []
     counter = 0  
@@ -64,12 +62,6 @@ def piecemeal_to_df():
         else: 
             persons.append(patient.person)
             counter += 1
-        
-        
-        
-'''
-TODO: Create a person_id start, end batch import to
-'''
 
 def grab_specific_persons(*args):
     person_collector = [] 
@@ -79,12 +71,14 @@ def grab_specific_persons(*args):
             person_collector.append(x.person)
             if len(args) == len(person_collector):
                 return person_collector
-            
-            
+                     
 def export_to_csv(df, name):
     path = '{0}/{1}.csv'.format(export_dir, name)
     df.to_csv(path, sep='\t', encoding='utf-8')
-    
+
+'''
+Extraction functions
+'''    
 
 def assign_index_record(person): 
     sub_records = person.visit_occurances
@@ -111,7 +105,6 @@ def check_for_future_record(index_record, records, time_limit=30): # time_field 
     else: 
         return None
         # compare aganst period generator (not built yet)
-
 
 def get_person_index_age(person):
     try: 
@@ -173,12 +166,12 @@ def get_readmit_30(person):
         return 1
     else: 
         return 0
-    
+    p
 
-def get_person_icd_codes(person, period=365):
-        
+def get_person_icd_codes(person, period=365):       
     '''
     goes through conditions assigned to patient (and not to specific admission)
+    - uses ccs module to parse icd9 codes
     '''
     period_start = person.index_admission.visit_start_date - relativedelta(days=period)
     codes = [] 
@@ -192,31 +185,13 @@ def get_person_icd_codes(person, period=365):
                 print('what')
         else: 
             conditions[admission_id] = [condition.icd9_code]
-            
-    # Plug in CCS here to munge the codes
-        '''
-    MIMIC store codes without decimal: 
-    'The code field for the ICD-9-CM Principal and Other Diagnosis Codes is six characters in length, 
-    with the decimal point implied between the third and fourth digit for all diagnosis codes other than the V codes. 
-    The decimal is implied for V codes between the second and third digit.' - this is incorrect as seen in data... 
-    '''
     codes = []
     for visit in person.visit_occurances: 
         if visit.visit_start_date > period_start <= person.index_admission.visit_start_date: 
             for raw_code in conditions[str(visit.visit_occurance_id)]:
-                if raw_code is None:
-                    print("none for visit code")
-                    print(visit.visit_occurance_id)
-                    return []
-                
-                if raw_code.isdigit():
-                    code = '{0}.{1}'.format(raw_code[:3], raw_code[3:])
-                elif raw_code[0].isalpha(): 
-                    code = '{0}.{1}'.format(raw_code[:3], raw_code[3:])
-                else: 
-                    return []             
-                
-                codes.append(str(code))         
+                code = parse_dx_code(raw_code)
+                codes.append(code)
+    print(codes)
     return codes
 
 def apply_charlson_groupers(codes): 
@@ -263,7 +238,7 @@ def apply_extractors(person, codeset):
             return None
         person_index_age = get_person_index_age(person)
         if person_index_age > 120: 
-            return None # this is a bug in DOB for ~10~ of patients
+            return None # this is in DOB for ~10% of patients
         person_id = person.person_id
         index_admission_length = get_index_admission_length(person)
         # testing
@@ -283,8 +258,6 @@ def apply_extractors(person, codeset):
         [features.append(feature) for feature in ethnicity_features.values()]
         [features.append(feature) for feature in marital_features.values()]
         [features.append(feature) for feature in charlson_features.values()]
-        # testing
-        print(charlson_score)
         features.append(charlson_score)
         [features.append(feature) for feature in ccs_features.values()]
         features.append(readmit_30) 
@@ -301,8 +274,9 @@ def extract_to_dataframe(persons):
     [df_columns.append(feature) for feature in marital_values.keys()]
     [df_columns.append(feature) for feature in charlson_features.keys()]
     df_columns.append('charlson_score')
-    [df_columns.append(feature) for feature in sorted(codeset.dx_single_level_codes.keys())] # this is terrible 
+    [df_columns.append(feature) for feature in sorted(codeset.dx_single_level_codes.keys())] 
     df_columns.append("readmit_30") 
+    
     empty_col = [0 for x in df_columns]
     np_data = np.array(empty_col)
     
@@ -322,7 +296,7 @@ def extract_to_dataframe(persons):
 Pseduo-controller
 '''
 
-persons = create_test_batch(20)
+persons = create_test_batch(4)
 extract_to_dataframe(persons)
 
 
