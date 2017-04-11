@@ -27,7 +27,7 @@ classifiers =   {
 Setting up the test / train split
 ''' 
 # read in file from pickle
-df = pd.read_pickle('5k.pkl')
+df = pd.read_pickle('piecemeal.pkl')
 sk_features = df.columns[1:-1]
 # sk_features = df.columns[1:-19] # removes ccs stuff
 # sk_features = df.columns[1:4] # tiny set 

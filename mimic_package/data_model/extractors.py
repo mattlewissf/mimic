@@ -10,7 +10,7 @@ from mimic_package.data_model.oreader_mapper import Patient
 from mimic_package.connect.connect import connection_string
 from mimic_package.data_model.configs import create_sqa_reader_config
 from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_values, marital_status_dict,\
-    marital_values, check_against_charleston, charleston_values, check_against_ccs, index_admission_types
+    marital_values, check_against_charlson, charlson_features, check_against_ccs, index_admission_types
 import pickle
 from pandas.core.algorithms import isin # what is this? 
 from sqlalchemy.util.langhelpers import NoneType # what is this
@@ -40,6 +40,32 @@ def create_test_batch(batch_size):
             print(counter)
         else:
             return persons
+
+'''
+When trying to pull in all 46k patient records, I often fail to get all of the records
+'''
+            
+            
+def piecemeal_to_df():
+    persons = []
+    counter = 0  
+    for patient in reader:
+        if counter > 100: 
+            persons.append(patient.person)
+            pickle_df = extract_to_dataframe(persons)
+            pd.to_pickle(pickle_df, 'piecemeal.pkl')
+            print(len(persons)) 
+            counter = 0
+        elif reader.peek()  == None: 
+            persons.append(patient.person)
+            pickle_df = extract_to_dataframe(persons)
+            pd.to_pickle(pickle_df, 'piecemeal.pkl')
+            print('finished')
+        else: 
+            persons.append(patient.person)
+            counter += 1
+        
+        
         
 '''
 TODO: Create a person_id start, end batch import to
@@ -167,7 +193,7 @@ def get_person_icd_codes(person, period=365):
         else: 
             conditions[admission_id] = [condition.icd9_code]
             
-    # this is terrible
+    # Plug in CCS here to munge the codes
         '''
     MIMIC store codes without decimal: 
     'The code field for the ICD-9-CM Principal and Other Diagnosis Codes is six characters in length, 
@@ -193,9 +219,9 @@ def get_person_icd_codes(person, period=365):
                 codes.append(str(code))         
     return codes
 
-def apply_charleston_groupers(codes):
-    charleston_features = check_against_charleston(codes)
-    return charleston_features
+def apply_charlson_groupers(codes): 
+    charlson_features_scores = check_against_charlson(codes)
+    return charlson_features_scores
 
 def apply_ccs_groups(codes, codeset):
     ccs_features = check_against_ccs(codes, codeset)
@@ -247,15 +273,19 @@ def apply_extractors(person, codeset):
         marital_features = get_person_marital(person)
         admission_rate = get_admission_rate(person)
         codes = get_person_icd_codes(person)
-        charleston_features = apply_charleston_groupers(codes)
-        print(charleston_features) # testing ordering bug
+        charlson_features_scores = apply_charlson_groupers(codes)
+        charlson_features = charlson_features_scores[0]
+        charlson_score = charlson_features_scores[1]
         ccs_features = apply_ccs_groups(codes, codeset)
         readmit_30 = get_readmit_30(person)
         features = [person_id, person_index_age, index_admission_length, person_gender, admission_rate]
         [features.append(feature) for feature in index_admission_type_features.values()]
         [features.append(feature) for feature in ethnicity_features.values()]
         [features.append(feature) for feature in marital_features.values()]
-        [features.append(feature) for feature in charleston_features.values()]
+        [features.append(feature) for feature in charlson_features.values()]
+        # testing
+        print(charlson_score)
+        features.append(charlson_score)
         [features.append(feature) for feature in ccs_features.values()]
         features.append(readmit_30) 
         return features 
@@ -269,7 +299,8 @@ def extract_to_dataframe(persons):
     [df_columns.append(feature) for feature in index_admission_types.keys()]
     [df_columns.append(feature) for feature in ethnicity_values.keys()]
     [df_columns.append(feature) for feature in marital_values.keys()]
-    [df_columns.append(feature) for feature in charleston_values.keys()]
+    [df_columns.append(feature) for feature in charlson_features.keys()]
+    df_columns.append('charlson_score')
     [df_columns.append(feature) for feature in sorted(codeset.dx_single_level_codes.keys())] # this is terrible 
     df_columns.append("readmit_30") 
     empty_col = [0 for x in df_columns]
@@ -290,7 +321,8 @@ def extract_to_dataframe(persons):
 '''
 Pseduo-controller
 '''
-persons = create_test_batch(200)
-df = extract_to_dataframe() # extracts persons
-df.to_pickle('46k.pkl') # saves data / change name
+
+persons = create_test_batch(20)
+extract_to_dataframe(persons)
+
 
