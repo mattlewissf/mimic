@@ -1,9 +1,5 @@
-import os
 import numpy as np
 import pandas as pd
-import random
-import collections
-from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from mimic_package.connect.locations import features_dir, export_dir
 from mimic_package.data_model.oreader_mapper import Patient
@@ -11,14 +7,9 @@ from mimic_package.connect.connect import connection_string
 from mimic_package.data_model.configs import create_sqa_reader_config
 from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_values, marital_status_dict,\
     marital_values, check_against_charlson, charlson_features, check_against_ccs, index_admission_types
-import pickle
-from pandas.core.algorithms import isin # what is this? 
-from sqlalchemy.util.langhelpers import NoneType # what is this
 from types import NoneType # what is this
-from numpy.core.multiarray import interp
 from ccs.icd9 import ICD9
 from ccs.base import parse_dx_code
-from numpy.core.defchararray import index
 
 
 '''
@@ -30,6 +21,7 @@ reader = Patient.reader(reader_config)
 """ 
 Extraction helper functions.
 """ 
+
 def create_test_batch(batch_size):
     persons = [] 
     counter = 0 # refactor? 
@@ -47,13 +39,16 @@ When trying to pull in all 46k patient records, I often fail to get all of the r
 def piecemeal_to_df():
     persons = []
     counter = 0  
+    df_num = 1
     for patient in reader:
-        if counter > 100: 
+        if counter > 1000: 
             persons.append(patient.person)
             pickle_df = extract_to_dataframe(persons)
-            pd.to_pickle(pickle_df, 'piecemeal.pkl')
-            print(len(persons)) 
+            pd.to_pickle(pickle_df, 'piecemeal_{}.pkl'.format(df_num)) # put piecemeal back when you want
+            print('piecemeal_{}'.format(df_num))
             counter = 0
+            persons = []
+            df_num += 1
         elif reader.peek()  == None: 
             persons.append(patient.person)
             pickle_df = extract_to_dataframe(persons)
@@ -62,6 +57,23 @@ def piecemeal_to_df():
         else: 
             persons.append(patient.person)
             counter += 1
+            
+            
+def combine_piecemeal_dfs():
+
+    combined_df = None
+    for x in xrange(1,46): 
+        if combined_df is not None: 
+            target_df = pd.read_pickle('piecemeal_{}.pkl'.format(x))
+            combined_df = combined_df.append(target_df, ignore_index=True)
+        else: 
+            combined_df = pd.read_pickle('piecemeal_{}.pkl'.format(x))
+            
+
+    pd.to_pickle(combined_df, 'combined_df.pkl')
+    print('created combined_df')
+    return combined_df
+
 
 def grab_specific_persons(*args):
     person_collector = [] 
@@ -110,17 +122,18 @@ def get_person_index_age(person):
     try: 
         index_record_date = person.index_admission.visit_start_date
     except AttributeError: 
-        print('boomp')
+        print('person_index_age_error')
     person_dob = person.DOB
     person_age_at_index = index_record_date - person_dob
     person_age_at_index = format((person_age_at_index.total_seconds() / (365.25 * 86400)), '.2f') # convert to years 
-    pass
     return float(person_age_at_index)
 
 def get_index_admission_length(person):
     index_admission = person.index_admission
     index_admission_length = index_admission.visit_end_date - index_admission.visit_start_date 
     index_admission_length = format((index_admission_length.total_seconds() / 86400), '.2f')  # convert to days 
+    if index_admission_length < 0: 
+        index_admission_length = 0
     return float(index_admission_length)
 
 def get_index_admission_type(person):
@@ -149,13 +162,7 @@ def get_admission_rate(person):
     return admission_rate
 
 def get_readmit_30(person):
-    ''' 
-    Look more into other models for this, and what eassign_index_recordxists in the MIMIC record: 
-    - death w/in 30 days (in)
-    - certain types of admissions (ex) 
-    - transfers (in) 
-    - expected treatment re-admits (chemo / dialysis) (ex) 
-    ''' 
+    # TODO: Check on admission type here 
     
     period_end = person.index_admission.visit_end_date + relativedelta(days=30)
     admissions_within_30_days = [admission for admission in person.visit_occurances 
@@ -166,12 +173,11 @@ def get_readmit_30(person):
         return 1
     else: 
         return 0
-    p
 
 def get_person_icd_codes(person, period=365):       
     '''
     goes through conditions assigned to patient (and not to specific admission)
-    - uses ccs module to parse icd9 codes
+    - uses ccs module to parse icd9
     '''
     period_start = person.index_admission.visit_start_date - relativedelta(days=period)
     codes = [] 
@@ -189,9 +195,11 @@ def get_person_icd_codes(person, period=365):
     for visit in person.visit_occurances: 
         if visit.visit_start_date > period_start <= person.index_admission.visit_start_date: 
             for raw_code in conditions[str(visit.visit_occurance_id)]:
-                code = parse_dx_code(raw_code)
-                codes.append(code)
-    print(codes)
+                try:
+                    code = parse_dx_code(raw_code)
+                    codes.append(code)
+                except TypeError:
+                    print("Type Error", raw_code)
     return codes
 
 def apply_charlson_groupers(codes): 
@@ -281,10 +289,9 @@ def extract_to_dataframe(persons):
     np_data = np.array(empty_col)
     
     for person in persons: 
-        features = apply_extractors(person, codeset) # added codeset
+        features = apply_extractors(person, codeset) 
         if features: 
             np_data = np.vstack((np_data, features))
-#             print(features)
         
     df = pd.DataFrame(data=np_data[1:,:], columns=df_columns)
     df.person_index_age = df.person_index_age.astype(int)
@@ -296,7 +303,9 @@ def extract_to_dataframe(persons):
 Pseduo-controller
 '''
 
-persons = create_test_batch(4)
-extract_to_dataframe(persons)
+# persons = create_test_batch(10)
+a = combine_piecemeal_dfs()
+print('hey')
+# extract_to_dataframe(persons)
 
 

@@ -66,15 +66,6 @@ ethnicity_values_tup = (('race_other', 0),
 
 ethnicity_values = collections.OrderedDict(ethnicity_values_tup)
 
-# ethnicity_values = {'race_other': 0, 
-#                     'white': 1, 
-#                     'black': 2, 
-#                     'latino': 3, 
-#                     'asian': 4, 
-#                     'multi_racial': 5, 
-#                     'middle_eastern': 6,
-#                     'pacific_islander': 7, 
-#                     'american_indian': 8 }
 
 '''
 - unknown
@@ -104,17 +95,6 @@ marital_values_tup =    (
 marital_values = collections.OrderedDict(marital_values_tup)
     
 
-
-# marital_status_dict = {
-#                         'SEPARATED': 3, 
-#                         'MARRIED': 1, 
-#                         'DIVORCED': 3, 
-#                         'UNKNOWN (DEFAULT)': 0, 
-#                         'SINGLE': 2, 
-#                         'WIDOWED': 3, 
-#                         'LIFE PARTNER': 1
-#                         }
-                        
 
 '''
 Charleston comorbidity dicts
@@ -210,8 +190,7 @@ Based off of http://czresearch.com/dropbox/Quan_MedCare_2005v43p1130.pdf
 updated_charlson_icd9_coding = {
                             'Myocardial infarction': ['410.x', '412.x'],
                             'Congestive heart failure': ['398.91', '402.01', '402.11', '402.91',
-                                                        '404.01', '404.03', '404.11',
-                                                        '404.13', '404.91', '404.93'],
+                                                        '404.01', '404.03', '404.11', '404.13', '404.91', '404.93'],
                             'Peripheral vascular disease': ['093.0', '437.3', '440.x', '441.x',
                                                             '443.1-443.9', '47.1', '557.1',
                                                             '557.9', 'V43.4'],
@@ -376,7 +355,6 @@ def check_against_ccs(user_codes, codeset, code_type='dx', code_level='single'):
     for k,v in f.iteritems():
         overlap = user_set & v
         if overlap: 
-            print(overlap)
             ccs_features[k] = 1
         else:
             ccs_features[k] = 0

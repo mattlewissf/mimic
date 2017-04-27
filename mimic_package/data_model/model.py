@@ -11,27 +11,42 @@ from sklearn.ensemble.gradient_boosting import GradientBoostingClassifier
 from sklearn.linear_model.logistic import LogisticRegression,\
     LogisticRegressionCV
 import matplotlib.pyplot as plt
+from matplotlib.pyplot import plot
 
 
 classifiers =   {
                 'rfc': RandomForestClassifier(),
-                 'kn': KNeighborsClassifier(), 
+#                  'kn': KNeighborsClassifier(), 
                  'abclf': AdaBoostClassifier(),
                  'gbclf': GradientBoostingClassifier(),     
                  'dtc': DecisionTreeClassifier(max_depth=5),
                  'lgr': LogisticRegression(), 
                  'lgr_cv': LogisticRegressionCV()
-                 }                    
+                 }             
+
+GBC_attempts = {
+                'standard': GradientBoostingClassifier(),
+#                 'depth_5': GradientBoostingClassifier(max_depth=5), 
+#                 'depth_2': GradientBoostingClassifier(max_depth=2), 
+#                 'depth_1': GradientBoostingClassifier(max_depth=1), 
+                'depth_4': GradientBoostingClassifier(max_depth=1), 
+                'max_features_auto': GradientBoostingClassifier(max_features="auto"),
+                'n_est_200': GradientBoostingClassifier(n_estimators=200), 
+                'n_est_40': GradientBoostingClassifier(n_estimators=40),
+                'n_est_40_l_rate_05': GradientBoostingClassifier(n_estimators=40, learning_rate=.05) }
+       
 
 '''
 Setting up the test / train split
 ''' 
 # read in file from pickle
-df = pd.read_pickle('piecemeal.pkl')
-sk_features = df.columns[1:-1]
+df = pd.read_pickle('combined_df.pkl')
+# sk_features = df.columns[1:-1]
 # sk_features = df.columns[1:-19] # removes ccs stuff
-# sk_features = df.columns[1:4] # tiny set 
-X  = df[sk_features]
+# sk_features = df.columns[1:-37] # removes ccs and charleston
+sk_features = df.columns[1:4] # tiny set 
+# sk_features = df.columns[1:20] # just demo
+X = df[sk_features]
 y = df["readmit_30"]
 df_ = df.copy()
 df_out = df_.drop(sk_features, axis=1)
@@ -71,21 +86,26 @@ def bootstrap(X, n=None):
     df = X.loc[resample_i]
     return df
 
-def run_auc_bootstrapping(data, n=1000, clf=DecisionTreeClassifier(max_depth=5)):
+def run_auc_bootstrapping(data, clf):
     aucs = [] 
-    for _ in range(n):
+    n = 100
+    for x in range(n):
         boot = bootstrap(data)
-        aucs.append(get_mean_auc(boot, clf))
+        mean_auc = get_mean_auc(boot, clf)
+        aucs.append(mean_auc)
+        print(x, mean_auc)
     
     return aucs
 
 def get_percentile(data): # by defaut these
     ninety_seventh = np.percentile(data, 97.5) 
     two_half = np.percentile(data, 2.5)
+    
+    return{'97.5th': ninety_seventh, '2.5th': two_half}
         
 
 def plot_aucs():
-    for name, clf in classifiers:
+    for name, clf in classifiers.iteritems():
         plots = [] # remove later
         kf = KFold(n_splits=10) # bring back to 10
         kf.get_n_splits(X)
@@ -112,17 +132,27 @@ def plot_aucs():
         for plot in plots: 
             plt.plot(plot[0], plot[1], color='b')
         plt.plot(mean_fpr, mean_tpr, color ='r')
-        plt.xlabel('{0}  -- mean auc = {1}'.format(name, mean_auc))
+        plt.xlabel('{0}  -- mean auc = {1}'.format(clf, mean_auc))
         plt.show()
         
-def run_all_classifiers(data):
+def run_all_classifiers(data, classifiers=classifiers):
     for name, clf in classifiers.iteritems(): 
         mean_auc = get_mean_auc(data, clf)
         print(name, mean_auc)
 
+def run_bootstrap_confidence(data, clf):
+    print('running bootstrap + confidence for {}').format(clf)
+#     aucs = run_auc_bootstrapping(data=data, clf=clf)
+    aucs = run_auc_bootstrapping(data=data, clf=clf)
+    percentiles = get_percentile(aucs)
+    return percentiles
+    
 
-run_all_classifiers(df)
-
+run_all_classifiers(X, classifiers=classifiers)
+# result = run_bootstrap_confidence(X,classifiers['gbclf'])
+# print(result)
+# plot_aucs()
+    
 
 
 
