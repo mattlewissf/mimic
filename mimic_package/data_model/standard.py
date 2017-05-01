@@ -46,7 +46,7 @@ class OMOPVisitOccurance(OMOPStandardData):
     """
     def __init__(self, visit_occurance_id, person_id, visit_start_date, 
                  visit_end_date, place_of_service_source_value, diagnosis, 
-                 ethnicity, marital_status, admission_type):
+                 ethnicity, marital_status, admission_type, insurance_status):
         self.visit_occurance_id = visit_occurance_id
         self.person_id = person_id 
         self.visit_start_date = visit_start_date
@@ -58,6 +58,7 @@ class OMOPVisitOccurance(OMOPStandardData):
 #         self.time_in_ed = time_in_ed # need to add / calculated from Admission.edregtime and Admission.edouttime
         self.admission_type = admission_type
         # maybe some basic stats or discharge info from this admission, provided it can be grouped or made 0-100 
+        self.insurance_status = insurance_status
     pass
 
 class OMOPConditionOccurance(OMOPStandardData): 

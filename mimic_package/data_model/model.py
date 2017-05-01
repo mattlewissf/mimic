@@ -41,10 +41,10 @@ Setting up the test / train split
 ''' 
 # read in file from pickle
 df = pd.read_pickle('combined_df.pkl')
-# sk_features = df.columns[1:-1]
+sk_features = df.columns[1:-1]
 # sk_features = df.columns[1:-19] # removes ccs stuff
 # sk_features = df.columns[1:-37] # removes ccs and charleston
-sk_features = df.columns[1:4] # tiny set 
+# sk_features = df.columns[1:4] # tiny set 
 # sk_features = df.columns[1:20] # just demo
 X = df[sk_features]
 y = df["readmit_30"]

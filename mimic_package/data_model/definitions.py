@@ -93,6 +93,17 @@ marital_values_tup =    (
 
 
 marital_values = collections.OrderedDict(marital_values_tup)
+
+
+insurance_status_dict = {   'Self Pay': 0, 
+                            'Medicare': 0, 
+                            'Medicaid': 0, 
+                            'Private': 0, 
+                            'Government': 0                            
+    }
+
+insurance_values = collections.OrderedDict(insurance_status_dict)
+
     
 
 

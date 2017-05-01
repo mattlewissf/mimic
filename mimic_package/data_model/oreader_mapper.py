@@ -82,7 +82,8 @@ class Patient(ChartObj):
                                 ethnicity = visit_occurance.ethnicity,
                                 marital_status = visit_occurance.marital_status,
 #                                 time_in_ed = something_calculated, # define how to calculate this
-                                admission_type = visit_occurance.admission_type))
+                                admission_type = visit_occurance.admission_type,
+                                insurance_status = visit_occurance.insurance))
         return return_occurances
     
     @property 

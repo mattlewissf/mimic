@@ -6,7 +6,8 @@ from mimic_package.data_model.oreader_mapper import Patient
 from mimic_package.connect.connect import connection_string
 from mimic_package.data_model.configs import create_sqa_reader_config
 from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_values, marital_status_dict,\
-    marital_values, check_against_charlson, charlson_features, check_against_ccs, index_admission_types
+    marital_values, check_against_charlson, charlson_features, check_against_ccs, index_admission_types,\
+    insurance_values
 from types import NoneType # what is this
 from ccs.icd9 import ICD9
 from ccs.base import parse_dx_code
@@ -85,7 +86,7 @@ def grab_specific_persons(*args):
                 return person_collector
                      
 def export_to_csv(df, name):
-    path = '{0}/{1}.csv'.format(export_dir, name)
+    path = '{0}/{1}.csv'.format('extract/', name)
     df.to_csv(path, sep='\t', encoding='utf-8')
 
 '''
@@ -144,6 +145,7 @@ def get_index_admission_type(person):
         admission_types[index_admission_type] = 1
     return admission_types
 
+
 def get_person_gender(person):
     person_gender = person.gender
     if person_gender == "M":
@@ -168,9 +170,16 @@ def get_readmit_30(person):
     admissions_within_30_days = [admission for admission in person.visit_occurances 
                                  if admission.visit_start_date > person.index_admission.visit_end_date 
                                  and admission.visit_start_date < period_end]
+
     
     if len(admissions_within_30_days) > 0: 
-        return 1
+        for admission in admissions_within_30_days: 
+            # this is to make sure that no elective things are being counted as readmits
+            if admission.admission_type == 'EMERGENCY' or 'URGENT': 
+                return 1
+            else: 
+                print admission.admission_type
+                return 0
     else: 
         return 0
 
@@ -237,6 +246,20 @@ def get_person_marital(person):
         return marital_features
     else: 
         return marital_features
+    
+def get_insurance_status(person):
+    ''' 
+    This is index admission as noted by the index admission record; 
+    there could be more to looking backward and constructing an insurance history
+    '''
+    insurance_features = insurance_values.copy()
+    insurance_status = person.index_admission.insurance_status
+    if insurance_status in insurance_features: 
+        insurance_features[insurance_status] = 1
+        return insurance_features
+    else: 
+        return insurance_features
+
 
 def apply_extractors(person, codeset):
         assign_index_record(person)
@@ -254,6 +277,7 @@ def apply_extractors(person, codeset):
         person_gender = get_person_gender(person)
         ethnicity_features = get_person_ethnicity(person)
         marital_features = get_person_marital(person)
+        insurance_features = get_insurance_status(person) # need to break out below
         admission_rate = get_admission_rate(person)
         codes = get_person_icd_codes(person)
         charlson_features_scores = apply_charlson_groupers(codes)
@@ -265,6 +289,7 @@ def apply_extractors(person, codeset):
         [features.append(feature) for feature in index_admission_type_features.values()]
         [features.append(feature) for feature in ethnicity_features.values()]
         [features.append(feature) for feature in marital_features.values()]
+        [features.append(feature) for feature in insurance_features.values()]
         [features.append(feature) for feature in charlson_features.values()]
         features.append(charlson_score)
         [features.append(feature) for feature in ccs_features.values()]
@@ -280,6 +305,7 @@ def extract_to_dataframe(persons):
     [df_columns.append(feature) for feature in index_admission_types.keys()]
     [df_columns.append(feature) for feature in ethnicity_values.keys()]
     [df_columns.append(feature) for feature in marital_values.keys()]
+    [df_columns.append(feature) for feature in insurance_values.keys()]
     [df_columns.append(feature) for feature in charlson_features.keys()]
     df_columns.append('charlson_score')
     [df_columns.append(feature) for feature in sorted(codeset.dx_single_level_codes.keys())] 
@@ -303,9 +329,9 @@ def extract_to_dataframe(persons):
 Pseduo-controller
 '''
 
-# persons = create_test_batch(10)
-a = combine_piecemeal_dfs()
-print('hey')
-# extract_to_dataframe(persons)
+persons = create_test_batch(2000)
+# a = combine_piecemeal_dfs()
+# print('hey')
+extract_to_dataframe(persons)
 
 
