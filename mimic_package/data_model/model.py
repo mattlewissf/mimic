@@ -12,6 +12,17 @@ from sklearn.linear_model.logistic import LogisticRegression,\
     LogisticRegressionCV
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import plot
+from extractors import combine_piecemeal_dfs
+
+plt_classifiers  =  {
+#                 'rfc': RandomForestClassifier(),
+# #                  'kn': KNeighborsClassifier(), 
+#                  'abclf': AdaBoostClassifier(),
+                 'gbclf': GradientBoostingClassifier(),     
+#                  'dtc': DecisionTreeClassifier(max_depth=5),
+#                  'lgr': LogisticRegression(), 
+#                  'lgr_cv': LogisticRegressionCV()
+                 }  
 
 
 classifiers =   {
@@ -40,8 +51,10 @@ GBC_attempts = {
 Setting up the test / train split
 ''' 
 # read in file from pickle
-df = pd.read_pickle('combined_df.pkl')
-sk_features = df.columns[1:-1]
+df = combine_piecemeal_dfs()
+# all_features = df.columns[1:-1]
+sk_features = df.columns[1:-1] # everything 
+# sk_features = all_features.drop(['Self Pay', 'Medicaid', 'Medicare', 'Private', 'Government']) # without insurance stuff
 # sk_features = df.columns[1:-19] # removes ccs stuff
 # sk_features = df.columns[1:-37] # removes ccs and charleston
 # sk_features = df.columns[1:4] # tiny set 
@@ -97,15 +110,17 @@ def run_auc_bootstrapping(data, clf):
     
     return aucs
 
-def get_percentile(data): # by defaut these
+def get_percentiles(data): # by defaut these
     ninety_seventh = np.percentile(data, 97.5) 
     two_half = np.percentile(data, 2.5)
+    fifth = np.percentile(data, 5.0)  
+    ninety_fifth = np.percentile(data, 95.0)  
     
-    return{'97.5th': ninety_seventh, '2.5th': two_half}
+    return{'97.5th': ninety_seventh, '2.5th': two_half, '95th': ninety_fifth, 'fifth': fifth}
         
 
 def plot_aucs():
-    for name, clf in classifiers.iteritems():
+    for name, clf in plt_classifiers.iteritems():
         plots = [] # remove later
         kf = KFold(n_splits=10) # bring back to 10
         kf.get_n_splits(X)
@@ -129,10 +144,15 @@ def plot_aucs():
         mean_tpr[-1] = 1.0
         mean_auc = auc(mean_fpr, mean_tpr)
         print(name, mean_auc)
+        
+        fig = plt.figure()
+        fig.suptitle('GradientBoostingClassifier | Mean AUC: {0}'.format(mean_auc), fontsize=14)
         for plot in plots: 
-            plt.plot(plot[0], plot[1], color='b')
-        plt.plot(mean_fpr, mean_tpr, color ='r')
-        plt.xlabel('{0}  -- mean auc = {1}'.format(clf, mean_auc))
+            plt.plot(plot[0], plot[1], lw=1, color='b')
+        
+        plt.plot(mean_fpr, mean_tpr, lw=3, color ='r')
+        plt.xlabel('FPR', fontsize=14)
+        plt.ylabel('TPR', fontsize=14)
         plt.show()
         
 def run_all_classifiers(data, classifiers=classifiers):
@@ -144,13 +164,14 @@ def run_bootstrap_confidence(data, clf):
     print('running bootstrap + confidence for {}').format(clf)
 #     aucs = run_auc_bootstrapping(data=data, clf=clf)
     aucs = run_auc_bootstrapping(data=data, clf=clf)
-    percentiles = get_percentile(aucs)
+    percentiles = get_percentiles(aucs)
+    print(percentiles)
     return percentiles
     
 
-run_all_classifiers(X, classifiers=classifiers)
-# result = run_bootstrap_confidence(X,classifiers['gbclf'])
-# print(result)
+# run_all_classifiers(X, classifiers=classifiers)
+result = run_bootstrap_confidence(X,classifiers['gbclf'])
+
 # plot_aucs()
     
 

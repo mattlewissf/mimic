@@ -71,7 +71,7 @@ def combine_piecemeal_dfs():
             combined_df = pd.read_pickle('piecemeal_{}.pkl'.format(x))
             
 
-    pd.to_pickle(combined_df, 'combined_df.pkl')
+    pd.to_pickle(combined_df, 'combined_df_w_ins.pkl')
     print('created combined_df')
     return combined_df
 
@@ -329,9 +329,15 @@ def extract_to_dataframe(persons):
 Pseduo-controller
 '''
 
-persons = create_test_batch(2000)
+# piecemeal_to_df()
 # a = combine_piecemeal_dfs()
-# print('hey')
-extract_to_dataframe(persons)
+# print('hmm')
+# a = create_test_batch(100)
+# b = extract_to_dataframe(a)
+# print('investigate!')
 
+
+
+if __name__ == '__main__':
+    pass
 
