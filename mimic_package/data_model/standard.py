@@ -1,5 +1,6 @@
-# this is where we put mapping over to OMOP, for example
-# standard does not know about mapper
+'''
+standard does not know about mapper
+'''
 
     
 class OMOPStandardData(object):
@@ -44,16 +45,20 @@ class OMOPVisitOccurance(OMOPStandardData):
     There could be several Providers involved in the patient's care during the Visit.
     """
     def __init__(self, visit_occurance_id, person_id, visit_start_date, 
-                 visit_end_date, place_of_service_source_value, diagnosis, admission_type):
+                 visit_end_date, place_of_service_source_value, diagnosis, 
+                 ethnicity, marital_status, admission_type, insurance_status):
         self.visit_occurance_id = visit_occurance_id
         self.person_id = person_id 
         self.visit_start_date = visit_start_date
         self.visit_end_date = visit_end_date
         self.place_of_service_source_value = place_of_service_source_value
         self.diagnosis = diagnosis
+        self.ethnicity = ethnicity
+        self.marital_status = marital_status
 #         self.time_in_ed = time_in_ed # need to add / calculated from Admission.edregtime and Admission.edouttime
         self.admission_type = admission_type
         # maybe some basic stats or discharge info from this admission, provided it can be grouped or made 0-100 
+        self.insurance_status = insurance_status
     pass
 
 class OMOPConditionOccurance(OMOPStandardData): 
