@@ -39,8 +39,7 @@ GBC_attempts = {
 Setting up the test / train split
 ''' 
 # read in file from pickle
-df = combine_piecemeal_dfs()
-    # replace this with an actual pickle read (this reconstitutes a pickle for some reason....
+df =  pd.read_pickle('features.pkl')
     
 '''
 Pulling out the features
@@ -171,7 +170,7 @@ def run_bootstrap_confidence(data, clf):
 Psuedo-controller
 '''
 # run all classifiers
-# run_all_classifiers(X, classifiers=GBC_attempts)
+run_all_classifiers(X)
 
 # run different tuned versions of GBC
 # run_all_classifiers(X, classifiers=GBC_attempts)

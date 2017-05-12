@@ -61,7 +61,6 @@ def piecemeal_to_df():
             
             
 def combine_piecemeal_dfs():
-
     combined_df = None
     for x in xrange(1,46): 
         if combined_df is not None: 
@@ -71,10 +70,9 @@ def combine_piecemeal_dfs():
             combined_df = pd.read_pickle('piecemeal_{}.pkl'.format(x))
             
 
-    pd.to_pickle(combined_df, 'combined_df_w_ins.pkl')
+    pd.to_pickle(combined_df, 'features.pkl')
     print('created combined_df')
     return combined_df
-
 
 def grab_specific_persons(*args):
     person_collector = [] 
@@ -253,7 +251,6 @@ def get_insurance_status(person):
         return insurance_features
     else: 
         return insurance_features
-
 
 def apply_extractors(person, codeset):
         assign_index_record(person)
