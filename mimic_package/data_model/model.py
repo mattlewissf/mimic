@@ -122,12 +122,8 @@ def plot_aucs():
     for name, clf in classifiers.iteritems():
         plots = [] # remove later
         kf = KFold(n_splits=10) # bring back to 10
-        kf.get_n_splits(X)run_all_classifiers(X, classifiers=GBC_attempts)
-# result = run_bootstrap_confidence(X,classifiers['gbclf'])
+        kf.get_n_splits(X)
 
-# plot_aucs()
-    
-           
         mean_tpr = 0.0
         mean_fpr = np.linspace(0, 1, 100)
            
