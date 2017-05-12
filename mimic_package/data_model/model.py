@@ -11,8 +11,17 @@ from sklearn.linear_model.logistic import LogisticRegression,\
     LogisticRegressionCV
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import plot
-from extractors import combine_piecemeal_dfs
+from sklearn.pipeline import Pipeline
+from pyearth.earth import Earth
 
+'''
+Py-Earth classifiers
+'''
+
+earth_classifier = Pipeline([('earth', Earth(max_degree=1, penalty=1.5)), 
+                            ('logistic', LogisticRegression())])
+earth_classifier_gdc  = Pipeline([('earth', Earth(max_degree=3, penalty=1.5)), 
+                            ('gbc', GradientBoostingClassifier())])
 
 classifiers =   {
                 'RandomForestClassifier': RandomForestClassifier(),
@@ -20,7 +29,9 @@ classifiers =   {
                  'GradientBoostingClassifier': GradientBoostingClassifier(),     
                  'DecisionTreeClassifier': DecisionTreeClassifier(max_depth=5),
                  'LogisticRegression': LogisticRegression(), 
-                 'LogisticRegressionCV': LogisticRegressionCV()
+                 'LogisticRegressionCV': LogisticRegressionCV(), 
+                'earth': earth_classifier,
+                'earth_gdc': earth_classifier_gdc
                  }             
 
 # hyperparameter tuning for GBC
@@ -33,7 +44,8 @@ GBC_attempts = {
                 'n_est_200': GradientBoostingClassifier(n_estimators=200), 
                 'n_est_40': GradientBoostingClassifier(n_estimators=40),
                 'n_est_40_l_rate_05': GradientBoostingClassifier(n_estimators=40, learning_rate=.05) }
-       
+
+
 
 '''
 Setting up the test / train split
@@ -64,8 +76,6 @@ y = df["readmit_30"]
 
 # df_ = df.copy()
 # df_out = df_.drop(all_features, axis=1)
-
-
 
 def get_mean_auc(df, clf):
     kf = KFold(n_splits = 10) # bring back to 10
@@ -155,6 +165,7 @@ def plot_aucs():
         
 def run_all_classifiers(data, classifiers=classifiers):
     for name, clf in classifiers.iteritems(): 
+        print(clf)
         mean_auc = get_mean_auc(data, clf)
         print(name, mean_auc)
 
