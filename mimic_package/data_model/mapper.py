@@ -1,12 +1,10 @@
-# mapper knows about standard (will import standard)
-from sqlalchemy.ext.automap import automap_base
 from mimic_package.data_model.metadata import metadata
 from sqlalchemy.sql.schema import Column, Table, ForeignKey
 from sqlalchemy.sql.sqltypes import Integer
 from sqlalchemy.ext.declarative.api import declarative_base
 from sqlalchemy.orm import relationship
 from mimic_package.data_model.standard import OMOPPerson, OMOPDrugExposure, OMOPVisitOccurance, \
-OMOPProcedureOccurance, OMOPObservation, OMOPConditionOccurance, OMOPDeath, OMOPProvider
+OMOPProcedureOccurance, OMOPObservation, OMOPConditionOccurance, OMOPDeath
 
 
 Base = declarative_base()
