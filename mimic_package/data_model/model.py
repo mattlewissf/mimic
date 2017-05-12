@@ -37,9 +37,8 @@ classifiers =   {
 
 GBC_attempts = {
                 'standard': GradientBoostingClassifier(),
-#                 'depth_5': GradientBoostingClassifier(max_depth=5), 
-#                 'depth_2': GradientBoostingClassifier(max_depth=2), 
-#                 'depth_1': GradientBoostingClassifier(max_depth=1), 
+                'depth_5': GradientBoostingClassifier(max_depth=5), 
+                'depth_2': GradientBoostingClassifier(max_depth=2), 
                 'depth_4': GradientBoostingClassifier(max_depth=1), 
                 'max_features_auto': GradientBoostingClassifier(max_features="auto"),
                 'n_est_200': GradientBoostingClassifier(n_estimators=200), 
@@ -169,8 +168,8 @@ def run_bootstrap_confidence(data, clf):
     return percentiles
     
 
-# run_all_classifiers(X, classifiers=classifiers)
-result = run_bootstrap_confidence(X,classifiers['gbclf'])
+run_all_classifiers(X, classifiers=GBC_attempts)
+# result = run_bootstrap_confidence(X,classifiers['gbclf'])
 
 # plot_aucs()
     

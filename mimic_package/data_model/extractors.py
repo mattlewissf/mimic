@@ -117,7 +117,6 @@ def check_for_future_record(index_record, records, time_limit=30): # time_field 
             return index_record
     else: 
         return None
-        # compare aganst period generator (not built yet)
 
 def get_person_index_age(person):
     try: 
@@ -155,26 +154,22 @@ def get_person_gender(person):
 
 
 def get_admission_rate(person):
-    # backwards 12 months of admissions / from CMS doc 
+    # backwards 12 months of admissions / period taken from CMS documentation 
     period_start = person.index_admission.visit_start_date - relativedelta(years=1)
     admissions_in_period = [admission for admission in person.visit_occurances if 
                             admission.visit_start_date > period_start and admission.visit_start_date < 
                             person.index_admission.visit_start_date]
-    admission_rate = len(admissions_in_period) / 12.0 # set as admissions per month? fix this to correct standard
+    admission_rate = len(admissions_in_period) / 12.0 #TODO: 'normalize' this
     return admission_rate
 
 def get_readmit_30(person):
-    # TODO: Check on admission type here 
-    
     period_end = person.index_admission.visit_end_date + relativedelta(days=30)
     admissions_within_30_days = [admission for admission in person.visit_occurances 
                                  if admission.visit_start_date > person.index_admission.visit_end_date 
                                  and admission.visit_start_date < period_end]
 
-    
     if len(admissions_within_30_days) > 0: 
         for admission in admissions_within_30_days: 
-            # this is to make sure that no elective things are being counted as readmits
             if admission.admission_type == 'EMERGENCY' or 'URGENT': 
                 return 1
             else: 
@@ -189,7 +184,6 @@ def get_person_icd_codes(person, period=365):
     - uses ccs module to parse icd9
     '''
     period_start = person.index_admission.visit_start_date - relativedelta(days=period)
-    codes = [] 
     conditions = {}
     for condition in person.conditions:
         admission_id = str(condition.admission_id)
@@ -197,7 +191,7 @@ def get_person_icd_codes(person, period=365):
             try:
                 conditions[admission_id].append(condition.icd9_code)
             except AttributeError:
-                print('what')
+                pass
         else: 
             conditions[admission_id] = [condition.icd9_code]
     codes = []
@@ -328,14 +322,6 @@ def extract_to_dataframe(persons):
 '''
 Pseduo-controller
 '''
-
-# piecemeal_to_df()
-# a = combine_piecemeal_dfs()
-# print('hmm')
-# a = create_test_batch(100)
-# b = extract_to_dataframe(a)
-# print('investigate!')
-
 
 
 if __name__ == '__main__':
