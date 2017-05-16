@@ -12,26 +12,34 @@ from sklearn.linear_model.logistic import LogisticRegression,\
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import plot
 from sklearn.pipeline import Pipeline
-from pyearth.earth import Earth
+# from pyearth.earth import Earth # remove
+# sklearn 
+from sklearntools.earth import Earth
+from sklearntools.model_selection import ModelSelectorCV 
+
 
 '''
 Py-Earth classifiers
 '''
 
-earth_classifier = Pipeline([('earth', Earth(max_degree=1, penalty=1.5)), 
-                            ('logistic', LogisticRegression())])
-earth_classifier_gdc  = Pipeline([('earth', Earth(max_degree=3, penalty=1.5)), 
-                            ('gbc', GradientBoostingClassifier())])
+# sklearn style! 
+
+earth_classifier = Earth() >> LogisticRegression()
+
+# earth_classifier = Pipeline([('earth', Earth(max_degree=1, penalty=1.5)), 
+#                             ('logistic', LogisticRegression())])
+# earth_classifier_gdc  = Pipeline([('earth', Earth(max_degree=3, penalty=1.5)), 
+#                             ('gbc', GradientBoostingClassifier())])
 
 classifiers =   {
-                'RandomForestClassifier': RandomForestClassifier(),
-                 'AdaBoostClassifier': AdaBoostClassifier(),
-                 'GradientBoostingClassifier': GradientBoostingClassifier(),     
-                 'DecisionTreeClassifier': DecisionTreeClassifier(max_depth=5),
-                 'LogisticRegression': LogisticRegression(), 
-                 'LogisticRegressionCV': LogisticRegressionCV(), 
+#                 'RandomForestClassifier': RandomForestClassifier(),
+#                  'AdaBoostClassifier': AdaBoostClassifier(),
+#                  'GradientBoostingClassifier': GradientBoostingClassifier(),     
+#                  'DecisionTreeClassifier': DecisionTreeClassifier(max_depth=5),
+#                  'LogisticRegression': LogisticRegression(), 
+#                  'LogisticRegressionCV': LogisticRegressionCV(), 
                 'earth': earth_classifier,
-                'earth_gdc': earth_classifier_gdc
+#                 'earth_gdc': earth_classifier_gdc
                  }             
 
 # hyperparameter tuning for GBC
