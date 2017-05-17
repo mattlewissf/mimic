@@ -1,0 +1,14 @@
+name: mimicdev
+dependencies:
+    - python=2.7.12
+    - nose
+    - sqlalchemy
+    - pandas
+    - sympy
+    - mako
+    - scikit-learn
+    - matplotlib
+    - toolz
+    - pip:
+        - autopep8
+        - git+https://github.com/jcrudy/sklearntools.git@bb3beae279bda6995fa35f6f7eee05413148e59d
