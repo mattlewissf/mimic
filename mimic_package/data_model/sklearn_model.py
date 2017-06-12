@@ -10,7 +10,7 @@ from sklearntools.calibration import ProbaPredictingEstimator
 from sklearntools.validation import plot_roc, bootstrap, percentile,\
     calibration_bin_plot
 from matplotlib import pyplot
-from sklearntools.sym import model_to_code
+from sklearntools.sym.printers import model_to_code
 from sklearn.ensemble.gradient_boosting import GradientBoostingClassifier
 from sklearn.ensemble.forest import RandomForestClassifier
 from sklearn.ensemble.weight_boosting import AdaBoostClassifier

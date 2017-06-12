@@ -9,6 +9,10 @@ dependencies:
     - scikit-learn
     - matplotlib
     - toolz
+    - decorator
     - pip:
         - autopep8
-        - git+https://github.com/jcrudy/sklearntools.git@bb3beae279bda6995fa35f6f7eee05413148e59d
+        - git+https://github.com/scikit-learn-contrib/py-earth.git
+        - git+https://github.com/jcrudy/clinvoc.git
+        - git+https://github.com/mattlewissf/ccs.git
+        - git+https://github.com/jcrudy/sklearntools.git

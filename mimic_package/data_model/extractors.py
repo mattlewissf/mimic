@@ -9,8 +9,9 @@ from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_value
     marital_values, check_against_charlson, charlson_features, check_against_ccs, index_admission_types,\
     insurance_values
 from types import NoneType # what is this
-from ccs.icd9 import ICD9
-from ccs.base import parse_dx_code
+from ccs.icd9 import dx_code_sets_dict
+from clinvoc.icd9 import ICD9CM
+# from ccs.base import parse_dx_code
 
 
 '''
@@ -18,6 +19,7 @@ Reader config
 '''
 reader_config = create_sqa_reader_config(connection_string, limit_per=10000, n_tries=10)
 reader = Patient.reader(reader_config)
+print('is it here')
 
 """ 
 Extraction helper functions.
@@ -197,7 +199,7 @@ def get_person_icd_codes(person, period=365):
         if visit.visit_start_date > period_start <= person.index_admission.visit_start_date: 
             for raw_code in conditions[str(visit.visit_occurance_id)]:
                 try:
-                    code = parse_dx_code(raw_code)
+                    code = ICD9CM.parse(raw_code)
                     codes.append(code)
                 except TypeError:
                     print("Type Error", raw_code)
@@ -207,8 +209,8 @@ def apply_charlson_groupers(codes):
     charlson_features_scores = check_against_charlson(codes)
     return charlson_features_scores
 
-def apply_ccs_groups(codes, codeset):
-    ccs_features = check_against_ccs(codes, codeset)
+def apply_ccs_groups(codes):
+    ccs_features = check_against_ccs(codes)
     return ccs_features
 
 def get_person_ethnicity(person):
@@ -252,7 +254,7 @@ def get_insurance_status(person):
     else: 
         return insurance_features
 
-def apply_extractors(person, codeset):
+def apply_extractors(person):
         assign_index_record(person)
         if person.index_admission == None: # leave out people with no index admission
             return None
@@ -274,7 +276,7 @@ def apply_extractors(person, codeset):
         charlson_features_scores = apply_charlson_groupers(codes)
         charlson_features = charlson_features_scores[0]
         charlson_score = charlson_features_scores[1]
-        ccs_features = apply_ccs_groups(codes, codeset)
+        ccs_features = apply_ccs_groups(codes)
         readmit_30 = get_readmit_30(person)
         features = [person_id, person_index_age, index_admission_length, person_gender, admission_rate]
         [features.append(feature) for feature in index_admission_type_features.values()]
@@ -289,8 +291,8 @@ def apply_extractors(person, codeset):
     
 def extract_to_dataframe(persons):
     # instantiating codeset for ccs just once here for speed - need to figure out more pythonic ways
-    codeset = ICD9()
-    print('using ICD9 codeset')
+#     codeset = ICD9()
+#     print('using ICD9 codeset')
     
     df_columns = ["person_id", "person_index_age","index_admission_length","person_gender", "admission_rate"]
     [df_columns.append(feature) for feature in index_admission_types.keys()]
@@ -299,14 +301,14 @@ def extract_to_dataframe(persons):
     [df_columns.append(feature) for feature in insurance_values.keys()]
     [df_columns.append(feature) for feature in charlson_features.keys()]
     df_columns.append('charlson_score')
-    [df_columns.append(feature) for feature in sorted(codeset.dx_single_level_codes.keys())] 
+    [df_columns.append(feature) for feature in sorted(dx_code_sets_dict.keys())] 
     df_columns.append("readmit_30") 
     
     empty_col = [0 for x in df_columns]
     np_data = np.array(empty_col)
     
     for person in persons: 
-        features = apply_extractors(person, codeset) 
+        features = apply_extractors(person) 
         if features: 
             np_data = np.vstack((np_data, features))
         
@@ -319,6 +321,12 @@ def extract_to_dataframe(persons):
 '''
 Pseduo-controller
 '''
+
+eep = create_test_batch(20)
+eep_df = extract_to_dataframe(eep)
+print('eep')
+
+
 
 
 if __name__ == '__main__':

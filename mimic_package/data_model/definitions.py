@@ -1,8 +1,9 @@
 import re
 import collections
 import itertools
-from ccs import icd9
-from ccs.icd9 import ICD9
+from ccs.icd9 import dx_code_sets_dict
+# from ccs import icd9
+# from ccs.icd9 import ICD9
 
 '''
 Based these buckets off of this paper: http://www.aaai.org/ocs/index.php/WS/AAAIW16/paper/view/12669
@@ -269,16 +270,16 @@ def check_against_charlson(user_codes, codes_dict=updated_charlson_icd9_coding):
 
 
 
-def check_against_ccs(user_codes, codeset, code_type='dx', code_level='single'):
+def check_against_ccs(user_codes):
     '''
     See CCS documentation for reference on code_level definitions: 
     https://www.hcup-us.ahrq.gov/toolssoftware/ccs/CCSUsersGuide.pdf
     '''
     
-    mapper = {'dx': {'single': codeset.dx_single_level_codes, 'category': codeset.dx_category_level_codes, 'multi': codeset.dx_multilevel_codes}, 
-              'px': {'single': codeset.px_single_level_codes, 'category': codeset.px_category_level_codes, 'multi': codeset.px_multilevel_codes}}
-    
-    f = mapper[code_type][code_level]
+#     mapper = {'dx': {'single': codeset.dx_single_level_codes, 'category': codeset.dx_category_level_codes, 'multi': codeset.dx_multilevel_codes}, 
+#               'px': {'single': codeset.px_single_level_codes, 'category': codeset.px_category_level_codes, 'multi': codeset.px_multilevel_codes}}
+#     
+    f = dx_code_sets_dict
     
     ccs_features = {} 
     user_set = set(user_codes)
