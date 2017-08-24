@@ -194,7 +194,7 @@ def fill_until(code):
 
 def expand_wildcard_code(code):
     codes = set()
-    int_code = int(code.split('.')[0])
+    int_code = int(code.split('.')[0])    
     code_start = code.split('.')[1]
     if code_start == 'x':
         code_start = 0

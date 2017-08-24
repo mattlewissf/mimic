@@ -15,7 +15,7 @@ from sklearn.pipeline import Pipeline
 # from pyearth.earth import Earth # remove
 # sklearn 
 from sklearntools.earth import Earth
-from sklearntools.model_selection import ModelSelectorCV 
+# from sklearntools.model_selection import ModelSelectorCV 
 
 
 '''
@@ -34,7 +34,7 @@ earth_classifier = Earth() >> LogisticRegression()
 classifiers =   {
 #                 'RandomForestClassifier': RandomForestClassifier(),
 #                  'AdaBoostClassifier': AdaBoostClassifier(),
-#                  'GradientBoostingClassifier': GradientBoostingClassifier(),     
+                'GradientBoostingClassifier': GradientBoostingClassifier(),     
 #                  'DecisionTreeClassifier': DecisionTreeClassifier(max_depth=5),
 #                  'LogisticRegression': LogisticRegression(), 
 #                  'LogisticRegressionCV': LogisticRegressionCV(), 

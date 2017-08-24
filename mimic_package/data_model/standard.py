@@ -43,15 +43,31 @@ class OMOPVisitOccurance(OMOPStandardData):
     The Visit Occurrence table contains all Person visits to health care providers, including inpatient,
     outpatient, and ER visits. A Visit is an encounter for a patient at a point of care for a duration of time.
     There could be several Providers involved in the patient's care during the Visit.
+    
+          visit_occurance_id=visit_occurance.hadm_id, 
+                                person_id=self.subject_id, 
+                                visit_start_date=visit_occurance.admittime, 
+                                visit_end_date = visit_occurance.dischtime, 
+                                visit_death = visit_occurance.deathtime, 
+                                visit_expire_flag = visit_occurance.hopsital_expire_flag, 
+                                place_of_service_source_value = visit_occurance.admission_location, 
+                                diagnosis = visit_occurance.diagnosis, 
+                                ethnicity = visit_occurance.ethnicity,
+                                marital_status = visit_occurance.marital_status,
+#                                 time_in_ed = something_calculated, # define how to calculate this
+                                admission_type = visit_occurance.admission_type,
+                                insurance_status = visit_occurance.insurance))
     """
     def __init__(self, visit_occurance_id, person_id, visit_start_date, 
-                 visit_end_date, place_of_service_source_value, diagnosis, 
+                 visit_end_date, visit_death, visit_expire_flag, place_of_service_source_value, diagnosis, 
                  ethnicity, marital_status, admission_type, insurance_status):
         self.visit_occurance_id = visit_occurance_id
         self.person_id = person_id 
         self.visit_start_date = visit_start_date
         self.visit_end_date = visit_end_date
         self.place_of_service_source_value = place_of_service_source_value
+        self.visit_death = visit_death
+        self.visit_expire_flag = visit_expire_flag
         self.diagnosis = diagnosis
         self.ethnicity = ethnicity
         self.marital_status = marital_status

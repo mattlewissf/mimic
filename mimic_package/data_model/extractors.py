@@ -7,7 +7,7 @@ from mimic_package.connect.connect import connection_string
 from mimic_package.data_model.configs import create_sqa_reader_config
 from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_values, marital_status_dict,\
     marital_values, check_against_charlson, charlson_features, check_against_ccs, index_admission_types,\
-    insurance_values
+    insurance_values, parse_icd_code
 from types import NoneType # what is this
 from ccs.icd9 import dx_code_sets_dict
 from clinvoc.icd9 import ICD9CM
@@ -177,12 +177,39 @@ def get_readmit_30(person):
                 return 0
     else: 
         return 0
+    
+def get_death_in_year(person):
+    # check for death record in admissions
+    period_end = person.index_admission.visit_end_date + relativedelta(days=365)
+    admissions_within_year = [admission for admission in person.visit_occurances 
+                                 if admission.visit_start_date > person.index_admission.visit_end_date 
+                                 and admission.visit_start_date < period_end]
+    
+    if admissions_within_year > 0: 
+        for admission in admissions_within_year: 
+            if admission.visit_death: 
+                print('death')
+                return 1
+    
+    if person.death:
+        if person.death.death_date < period_end: 
+            return 1
+
+    return 0
+
+#         return 1
+    
+#     else: 
+#         return 0 
+
+    
 
 def get_person_icd_codes(person, period=365):       
     '''
     goes through conditions assigned to patient (and not to specific admission)
     - uses ccs module to parse icd9
     '''
+    vocab = ICD9CM()
     period_start = person.index_admission.visit_start_date - relativedelta(days=period)
     conditions = {}
     for condition in person.conditions:
@@ -199,8 +226,9 @@ def get_person_icd_codes(person, period=365):
         if visit.visit_start_date > period_start <= person.index_admission.visit_start_date: 
             for raw_code in conditions[str(visit.visit_occurance_id)]:
                 try:
-                    code = ICD9CM.parse(raw_code)
-                    codes.append(code)
+                    
+                    code_set = vocab.parse(raw_code) # comes back as a set 
+                    [codes.append(code) for code in code_set]
                 except TypeError:
                     print("Type Error", raw_code)
     return codes
@@ -254,7 +282,7 @@ def get_insurance_status(person):
     else: 
         return insurance_features
 
-def apply_extractors(person):
+def apply_extractors(person, extract='30_day'):
         assign_index_record(person)
         if person.index_admission == None: # leave out people with no index admission
             return None
@@ -266,6 +294,7 @@ def apply_extractors(person):
         person_id = person.person_id
         index_admission_length = get_index_admission_length(person)
         # testing
+        death_in_year = get_death_in_year(person) # new! need to sort out
         index_admission_type_features = get_index_admission_type(person)
         person_gender = get_person_gender(person)
         ethnicity_features = get_person_ethnicity(person)
@@ -286,7 +315,10 @@ def apply_extractors(person):
         [features.append(feature) for feature in charlson_features.values()]
         features.append(charlson_score)
         [features.append(feature) for feature in ccs_features.values()]
-        features.append(readmit_30) 
+        if extract == '30_day': 
+            features.append(readmit_30) 
+        elif extract == 'death':
+            features.append(death_in_year)
         return features 
     
 def extract_to_dataframe(persons):
