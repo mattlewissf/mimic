@@ -6,16 +6,27 @@ from sklearn.tree.tree import DecisionTreeClassifier
 from numpy import interp
 from sklearn.ensemble.forest import RandomForestClassifier
 from sklearn.ensemble.weight_boosting import AdaBoostClassifier
-from sklearn.ensemble.gradient_boosting import GradientBoostingClassifier
+from sklearn.ensemble.gradient_boosting import GradientBoostingClassifier, QuantileLossFunction, BinomialDeviance
+from sklearn.ensemble.bagging import BaggingRegressor
 from sklearn.linear_model.logistic import LogisticRegression,\
     LogisticRegressionCV
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import plot
 from sklearn.pipeline import Pipeline
-# from pyearth.earth import Earth # remove
 # sklearn 
 from sklearntools.earth import Earth
 # from sklearntools.model_selection import ModelSelectorCV 
+
+#GB new implementation 
+
+from sklearntools.gb import GradientBoostingEstimator as SklearnToolsGBC
+from sklearntools.gb import stop_after_n_iterations_without_percent_improvement_over_threshold # is that right
+from sklearntools.test.test_gb import test_gradient_boosting_estimator_with_smooth_quantile_loss
+
+
+
+
+
 
 
 '''
@@ -23,6 +34,24 @@ Py-Earth classifiers
 '''
 
 # sklearn style! 
+
+
+
+# Sklearn GBC implementation 
+
+sklearntools_gbc_loss_function = BinomialDeviance(2)
+sklearntools_gbc_classifier = SklearnToolsGBC(BaggingRegressor(Earth(max_degree=2, verbose=False, use_fast=True, max_terms=10)), 
+                                      sklearntools_gbc_loss_function, n_estimators=50, 
+                                      stopper=stop_after_n_iterations_without_percent_improvement_over_threshold(2, .1), verbose=False)
+
+
+
+
+
+
+
+
+
 
 earth_classifier = Earth() >> LogisticRegression()
 
@@ -34,12 +63,13 @@ earth_classifier = Earth() >> LogisticRegression()
 classifiers =   {
 #                 'RandomForestClassifier': RandomForestClassifier(),
 #                  'AdaBoostClassifier': AdaBoostClassifier(),
-                'GradientBoostingClassifier': GradientBoostingClassifier(),     
+#                 'GradientBoostingClassifier': GradientBoostingClassifier(),     
 #                  'DecisionTreeClassifier': DecisionTreeClassifier(max_depth=5),
 #                  'LogisticRegression': LogisticRegression(), 
 #                  'LogisticRegressionCV': LogisticRegressionCV(), 
-                'earth': earth_classifier,
-#                 'earth_gdc': earth_classifier_gdc
+#                 'earth': earth_classifier,
+#                 'earth_gdc': earth_classifier_gdc, 
+                'sklearntools_gbc': sklearntools_gbc_classifier, 
                  }             
 
 # hyperparameter tuning for GBC
@@ -93,8 +123,15 @@ def get_mean_auc(df, clf):
     mean_fpr = np.linspace(0, 1, 100)
 
     for train, test in kf.split(X):
-        clf.fit(X.loc[train], y.loc[train])
-        prob = clf.predict_proba(X.loc[test])
+        try: 
+            clf.fit(X.loc[train], y.loc[train])
+            prob = clf.predict_proba(X.loc[test])
+            fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
+        except TypeError: 
+            clf.fit(X.loc[train].values, y.loc[train].values)
+            prob = clf.predict_proba(X.loc[test].values)
+            fpr, tpr, thresholds = roc_curve(y[test].values, prob[:,1])
+        
         fpr, tpr, thresholds = roc_curve(y[test], prob[:,1])
         mean_tpr += interp(mean_fpr, fpr, tpr)
         mean_tpr[0] = 0.0
