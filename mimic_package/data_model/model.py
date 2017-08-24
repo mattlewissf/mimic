@@ -40,8 +40,8 @@ Py-Earth classifiers
 # Sklearn GBC implementation 
 
 sklearntools_gbc_loss_function = BinomialDeviance(2)
-sklearntools_gbc_classifier = SklearnToolsGBC(BaggingRegressor(Earth(max_degree=2, verbose=False, use_fast=True, max_terms=10)), 
-                                      sklearntools_gbc_loss_function, n_estimators=50, 
+sklearntools_gbc_classifier = SklearnToolsGBC(BaggingRegressor(Earth(max_degree=2, verbose=True, use_fast=True, max_terms=10)), 
+                                      sklearntools_gbc_loss_function, n_estimators=150, 
                                       stopper=stop_after_n_iterations_without_percent_improvement_over_threshold(2, .1), verbose=False)
 
 
@@ -53,8 +53,7 @@ sklearntools_gbc_classifier = SklearnToolsGBC(BaggingRegressor(Earth(max_degree=
 
 
 
-earth_classifier = Earth() >> LogisticRegression()
-
+# earth_classifier = Earth() >> LogisticRegression()
 # earth_classifier = Pipeline([('earth', Earth(max_degree=1, penalty=1.5)), 
 #                             ('logistic', LogisticRegression())])
 # earth_classifier_gdc  = Pipeline([('earth', Earth(max_degree=3, penalty=1.5)), 
@@ -108,7 +107,6 @@ no_ccs_charlson = df.columns[1:-37]
 # Just demographic features
 only_demo_features = df.columns[1:20]
 
-# set feature set here within df[ ]
 X = df[all_features]
 y = df["readmit_30"]
 
@@ -116,7 +114,7 @@ y = df["readmit_30"]
 # df_out = df_.drop(all_features, axis=1)
 
 def get_mean_auc(df, clf):
-    kf = KFold(n_splits = 10) # bring back to 10
+    kf = KFold(n_splits = 10)
     kf.get_n_splits(X)
 
     mean_tpr = 0.0
