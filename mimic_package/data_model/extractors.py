@@ -8,10 +8,9 @@ from mimic_package.data_model.configs import create_sqa_reader_config
 from mimic_package.data_model.definitions import ethnicity_dict, ethnicity_values, marital_status_dict,\
     marital_values, check_against_charlson, charlson_features, check_against_ccs, index_admission_types,\
     insurance_values, parse_icd_code
-from types import NoneType # what is this
+from types import NoneType 
 from ccs.icd9 import dx_code_sets_dict
 from clinvoc.icd9 import ICD9CM
-# from ccs.base import parse_dx_code
 
 
 '''
@@ -19,7 +18,6 @@ Reader config
 '''
 reader_config = create_sqa_reader_config(connection_string, limit_per=10000, n_tries=10)
 reader = Patient.reader(reader_config)
-print('is it here')
 
 """ 
 Extraction helper functions.
@@ -196,13 +194,7 @@ def get_death_in_year(person):
             return 1
 
     return 0
-
-#         return 1
-    
-#     else: 
-#         return 0 
-
-    
+    # TODO: integrate Death model
 
 def get_person_icd_codes(person, period=365):       
     '''
@@ -354,9 +346,13 @@ def extract_to_dataframe(persons):
 Pseduo-controller
 '''
 
-eep = create_test_batch(20)
-eep_df = extract_to_dataframe(eep)
-print('eep')
+test_batch = create_test_batch(20)
+test_batch_df = extract_to_dataframe(test_batch)
+
+# create a pickle with this df 
+test_batch.to_pickle('test_batch.pkl')
+
+print('extraction complete')
 
 
 

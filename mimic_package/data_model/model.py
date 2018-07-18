@@ -16,42 +16,17 @@ from sklearn.pipeline import Pipeline
 # sklearn 
 from sklearntools.earth import Earth
 # from sklearntools.model_selection import ModelSelectorCV 
-
 #GB new implementation 
-
 from sklearntools.gb import GradientBoostingEstimator as SklearnToolsGBC
 from sklearntools.gb import stop_after_n_iterations_without_percent_improvement_over_threshold # is that right
 from sklearntools.test.test_gb import test_gradient_boosting_estimator_with_smooth_quantile_loss
 
 
 
-
-
-
+'''
+Py-Earth classifiers. Note: slow
 
 '''
-Py-Earth classifiers
-'''
-
-# sklearn style! 
-
-
-
-# Sklearn GBC implementation 
-
-sklearntools_gbc_loss_function = BinomialDeviance(2)
-sklearntools_gbc_classifier = SklearnToolsGBC(BaggingRegressor(Earth(max_degree=2, verbose=True, use_fast=True, max_terms=10)), 
-                                      sklearntools_gbc_loss_function, n_estimators=150, 
-                                      stopper=stop_after_n_iterations_without_percent_improvement_over_threshold(2, .1), verbose=False)
-
-
-
-
-
-
-
-
-
 
 # earth_classifier = Earth() >> LogisticRegression()
 # earth_classifier = Pipeline([('earth', Earth(max_degree=1, penalty=1.5)), 
@@ -59,16 +34,26 @@ sklearntools_gbc_classifier = SklearnToolsGBC(BaggingRegressor(Earth(max_degree=
 # earth_classifier_gdc  = Pipeline([('earth', Earth(max_degree=3, penalty=1.5)), 
 #                             ('gbc', GradientBoostingClassifier())])
 
+'''
+Sklearn GBC implementation - not better in this case than skelarn GBC
+'''
+
+# sklearntools_gbc_loss_function = BinomialDeviance(2)
+# sklearntools_gbc_classifier = SklearnToolsGBC(BaggingRegressor(Earth(max_degree=5, verbose=False, use_fast=True, max_terms=10)), 
+#                                       sklearntools_gbc_loss_function, n_estimators=150, 
+#                                       stopper=stop_after_n_iterations_without_percent_improvement_over_threshold(2, .1), verbose=1)
+
+
 classifiers =   {
 #                 'RandomForestClassifier': RandomForestClassifier(),
 #                  'AdaBoostClassifier': AdaBoostClassifier(),
-#                 'GradientBoostingClassifier': GradientBoostingClassifier(),     
+                'GradientBoostingClassifier': GradientBoostingClassifier(),     
 #                  'DecisionTreeClassifier': DecisionTreeClassifier(max_depth=5),
 #                  'LogisticRegression': LogisticRegression(), 
 #                  'LogisticRegressionCV': LogisticRegressionCV(), 
 #                 'earth': earth_classifier,
 #                 'earth_gdc': earth_classifier_gdc, 
-                'sklearntools_gbc': sklearntools_gbc_classifier, 
+#                 'sklearntools_gbc': sklearntools_gbc_classifier, 
                  }             
 
 # hyperparameter tuning for GBC
@@ -225,6 +210,7 @@ Psuedo-controller
 '''
 # run all classifiers
 run_all_classifiers(X)
+plot_aucs()
 
 # run different tuned versions of GBC
 # run_all_classifiers(X, classifiers=GBC_attempts)
